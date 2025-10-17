@@ -91,8 +91,6 @@
     const { useState, useEffect, useMemo } = React;
 
     // --------- Utilidades ---------
-    const STORAGE_KEY = 'estaciona_plus_v1';
-
     function formatBRL(value){
       if(value === '' || value === null || value === undefined) return '';
       const n = Number(value) || 0;
@@ -271,14 +269,11 @@
 
     function useTheme(){
       const [theme, setTheme] = useState(() => {
-        const saved = localStorage.getItem('theme');
-        if(saved) return saved;
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       });
       useEffect(()=>{
         const root = document.documentElement;
         if(theme==='dark') root.classList.add('dark'); else root.classList.remove('dark');
-        localStorage.setItem('theme', theme);
       }, [theme]);
       return [theme, setTheme];
     }
@@ -286,14 +281,11 @@
     function App(){
       
       const [theme, setTheme] = useTheme();
-      const [items, setItems] = useState(()=>{
-        try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [] }catch{ return [] }
-      });
+      const [items, setItems] = useState([]);
       const [tab, setTab] = useState('todos');
       const [search, setSearch] = useState('');
 
       useEffect(()=>{
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
         setTimeout(()=>window?.lucide?.createIcons?.(), 0);
       }, [items, tab, search, theme]);
 
@@ -446,9 +438,7 @@
     // Toggle via botão do header
     const themeBtn = document.getElementById('themeToggle');
     themeBtn?.addEventListener('click', () => {
-      const isDark = document.documentElement.classList.contains('dark');
       document.documentElement.classList.toggle('dark');
-      localStorage.setItem('theme', isDark ? 'light' : 'dark');
       window?.lucide?.createIcons?.();
     });
 
