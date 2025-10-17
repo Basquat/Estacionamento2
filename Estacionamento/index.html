@@ -268,9 +268,7 @@
     }
 
     function useTheme(){
-      const [theme, setTheme] = useState(() => {
-        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      });
+      const [theme, setTheme] = useState('light');
       useEffect(()=>{
         const root = document.documentElement;
         if(theme==='dark') root.classList.add('dark'); else root.classList.remove('dark');
@@ -289,21 +287,17 @@
         setTimeout(()=>window?.lucide?.createIcons?.(), 0);
       }, [items, tab, search, theme]);
 
-      // === MODIFICAÇÃO: evita placas duplicadas e normaliza (trim + uppercase) ===
       function addItem(novo){
         setItems(prev => {
           const placaNova = (novo.placa || '').trim().toUpperCase();
-          // se já existir placa igual (ignorando case/espacos), mostra alerta e não adiciona
           if(prev.some(i => ((i.placa||'').trim().toUpperCase() === placaNova))){
             alert('A placa ' + placaNova + ' já está cadastrada.');
             return prev;
           }
-          // garante que a placa salva esteja normalizada
           const novoNormalized = { ...novo, placa: placaNova };
           return [novoNormalized, ...prev];
         });
       }
-      // =====================================================================
 
       function togglePago(id){ setItems(prev => prev.map(i => i.id===id ? {...i, pago: !i.pago} : i)); }
       function updateValor(id, valor){ setItems(prev => prev.map(i => i.id===id ? {...i, valor} : i)); }
@@ -379,7 +373,7 @@
           </Section>
 
           {/* Configurações */}
-          <Section id="config" title="Configurações" subtitle="Tema, backup e mais">
+          <Section id="config" title="Configurações" subtitle="Tema e limpeza">
             <div className="grid gap-4">
               <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
                 <div className="flex items-center justify-between">
@@ -399,29 +393,9 @@
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="font-semibold">Dados</div>
-                    <div className="text-sm text-slate-500 dark:text-slate-400">Backup e limpeza</div>
+                    <div className="text-sm text-slate-500 dark:text-slate-400">Limpeza de dados</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={()=>{
-                        const blob = new Blob([JSON.stringify(items, null, 2)], {type:'application/json'});
-                        const url = URL.createObjectURL(blob);
-                        const a = Object.assign(document.createElement('a'), { href:url, download:'backup_estaciona_plus.json' });
-                        a.click(); URL.revokeObjectURL(url);
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white hover:brightness-110">Exportar</button>
-                    <label className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer">
-                      Importar
-                      <input type="file" accept="application/json" className="hidden" onChange={e=>{
-                        const file = e.target.files?.[0];
-                        if(!file) return;
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          try{ const data = JSON.parse(reader.result); if(Array.isArray(data)) setItems(data); else alert('Arquivo inválido'); }
-                          catch{ alert('Falha ao importar'); }
-                        };
-                        reader.readAsText(file);
-                      }}/>
-                    </label>
                     <button onClick={clearAll} className="px-3 py-1.5 rounded-xl bg-red-600 text-white hover:brightness-110">Limpar tudo</button>
                   </div>
                 </div>
