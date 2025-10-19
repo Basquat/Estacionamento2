@@ -1,4 +1,4 @@
-package com.estacionamento2.Entity;
+package com.Estacionamento2.Entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
