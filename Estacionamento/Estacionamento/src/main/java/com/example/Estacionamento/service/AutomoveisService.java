@@ -1,9 +1,9 @@
 package com.Estacionamento2.service;
 
-import com.estacionamento2.Entitys.Automoveis;
-import com.estacionamento2.Entitys.Payment;
-import com.estacionamento2.repository.AutomoveisRepository;
-import com.estacionamento2.repository.PaymentRepository;
+import com.Estacionamento2.Entitys.Automoveis;
+import com.Estacionamento2.Entitys.Payment;
+import com.Estacionamento2.repository.AutomoveisRepository;
+import com.Estacionamento2.repository.PaymentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
