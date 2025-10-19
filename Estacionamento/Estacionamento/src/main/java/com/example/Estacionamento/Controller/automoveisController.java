@@ -4,7 +4,7 @@ import com.Estacionamento2.dto.AutomoveisDTO;
 import com.Estacionamento2.Entity.automoveis;
 import com.Estacionamento2.Entity.TipoAutomoveis;
 import com.Estacionamento2.Entity.FormaPagamento;
-import com.Estacionamento2.service.automoveisService;
+import com.Estacionamento2.service.AutomoveisService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
