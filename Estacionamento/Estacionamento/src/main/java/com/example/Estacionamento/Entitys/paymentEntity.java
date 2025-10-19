@@ -1,41 +1,32 @@
-package com.example.Estacionamento.Entitys;
+package com.estacionaplus.model;
 
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
 
 @Entity
-public class paymentEntity {
+@Table(name = "pix")
+public class Pix {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @Column(nullable = false)
+    private Double valor;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private StatusPagamento status;
+    
+    @ManyToOne
+    @JoinColumn(name = "veiculo_id")
+    private Veiculo veiculo;
+    
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+    
+    // Construtores, Getters e Setters
+}
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
-  private Long id;
-
-  private double pix;
-  private double Dinheiro;
-
-  public paymentEntity() {
-  }
-
-  public paymentEntity(double pix, double Dinheiro) {
-    this.pix = pix;
-    this.Dinheiro = Dinheiro;
-  }
-
-  public double getPix() {
-    return pix;
-  }
-
-  public void setPix(double pix) {
-    this.pix = pix;
-  }
-
-  public double getDinheiro() {
-    return Dinheiro;
-  }
-
-  public void setDinheiro(double Dinheiro) {
-    this.Dinheiro = Dinheiro;
-  }
+enum StatusPagamento {
+    pago, pendente
 }
