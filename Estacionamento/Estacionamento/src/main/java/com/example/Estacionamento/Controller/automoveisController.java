@@ -1,4 +1,4 @@
-package com.example.Estacionamento.Controller;
+package com.example.Estacionamento2.Controller;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
