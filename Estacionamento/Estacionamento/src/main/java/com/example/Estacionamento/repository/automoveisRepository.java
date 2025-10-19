@@ -1,4 +1,4 @@
-package com.estacionaplus.repository;
+package com.Estacionamento2.repository;
 
 import com.estacionaplus.model.Veiculo;
 import org.springframework.data.jpa.repository.JpaRepository;
