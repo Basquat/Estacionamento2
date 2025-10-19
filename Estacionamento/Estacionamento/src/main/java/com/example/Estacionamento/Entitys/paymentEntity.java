@@ -18,7 +18,7 @@ public class paymentEntity {
     private StatusPagamento status;
     
     @ManyToOne
-    @JoinColumn(name = "automovel_id")
+    @JoinColumn(name = "vehiclesid"")
     private Automoveis automoveis;
     
     @Column(name = "created_at")
