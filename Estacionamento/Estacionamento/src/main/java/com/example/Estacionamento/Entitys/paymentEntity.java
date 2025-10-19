@@ -11,7 +11,7 @@ public class paymentEntity {
     private Long id;
     
     @Column(name = "valor", nullable = false)
-    private Double valor;
+    private float valor;
     
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
@@ -19,7 +19,7 @@ public class paymentEntity {
     
     @ManyToOne
     @JoinColumn(name = "vehiclesid"")
-    private Automoveis automoveis;
+    private automoveis Automoveis;
     
     @Column(name = "created_at")
     private LocalDateTime createdAt;
