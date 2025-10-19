@@ -34,7 +34,7 @@ public class automoveis {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
     
-    public Automoveis() {
+    public automoveis() {
         this.entrada = LocalDateTime.now();
         this.createdAt = LocalDateTime.now();
     }
