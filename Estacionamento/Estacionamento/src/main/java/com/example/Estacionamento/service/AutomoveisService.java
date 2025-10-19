@@ -1,7 +1,7 @@
 package com.Estacionamento2.service;
 
-import com.estacionamento2.model.Automoveis;
-import com.estacionamento2.model.Payment;
+import com.estacionamento2.Entitys.Automoveis;
+import com.estacionamento2.Entitys.Payment;
 import com.estacionamento2.repository.AutomoveisRepository;
 import com.estacionamento2.repository.PaymentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,37 +15,37 @@ import java.util.Optional;
 public class AutomoveisService {
     
     @Autowired
-    private AutomoveisRepository automoveisRepository;
+    private automoveisRepository automoveisrepository;
     
     @Autowired
-    private PaymentRepository paymentRepository;
+    private paymentRepository paymentrepository;
     
     public List<Automoveis> findAll() {
-        return automoveisRepository.findAll();
+        return automoveisrepository.findAll();
     }
     
     public Optional<Automoveis> findById(Long id) {
-        return automoveisRepository.findById(id);
+        return automoveisrepository.findById(id);
     }
     
     public Automoveis save(Automoveis automoveis) {
-        return automoveisRepository.save(automoveis);
+        return automoveisrepository.save(automoveis);
     }
     
     public void deleteById(Long id) {
-        automoveisRepository.deleteById(id);
+        automoveisrepository.deleteById(id);
     }
     
     @Transactional
     public Automoveis togglePagamento(Long id) {
-        Automoveis automoveis = automoveisRepository.findById(id)
+        Automoveis automoveis = automoveisrepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Automóvel não encontrado"));
         
         automoveis.setPago(!automoveis.getPago());
-        return automoveisRepository.save(automoveis);
+        return automoveisrepository.save(automoveis);
     }
     
     public boolean placaExists(String placa) {
-        return automoveisRepository.existsByPlaca(placa);
+        return automoveisrepository.existsByPlaca(placa);
     }
 }
