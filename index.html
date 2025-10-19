@@ -364,8 +364,6 @@
       document.getElementById('add-form').reset();
     }
 
-    // [CONTINUA... AS OUTRAS FUNÇÕES SERIAM IMPLEMENTADAS AQUI]
-
     // FUNÇÕES DE RENDERIZAÇÃO
     function renderizarResumo() {
       const carros = veiculos.filter(v => v.tipo === 'carro');
@@ -517,6 +515,126 @@
       window.lucide.createIcons();
     }
 
+    // RELATÓRIOS COMPLETOS
+    function renderizarRelatorios() {
+      const carros = veiculos.filter(v => v.tipo === 'carro');
+      const motos = veiculos.filter(v => v.tipo === 'moto');
+      
+      const totalCarrosPago = carros.filter(v => v.pago).reduce((s, v) => s + v.valor, 0);
+      const totalMotosPago = motos.filter(v => v.pago).reduce((s, v) => s + v.valor, 0);
+      const pendCarros = carros.filter(v => !v.pago).reduce((s, v) => s + v.valor, 0);
+      const pendMotos = motos.filter(v => !v.pago).reduce((s, v) => s + v.valor, 0);
+      
+      const totalGeral = totalCarrosPago + totalMotosPago + pendCarros + pendMotos;
+      const totalPagos = totalCarrosPago + totalMotosPago;
+      const totalPendentes = pendCarros + pendMotos;
+      
+      const totalPix = veiculos.filter(v => v.pago && v.formaPagamento === 'pix').reduce((s, v) => s + v.valor, 0);
+      const totalDinheiro = veiculos.filter(v => v.pago && v.formaPagamento === 'dinheiro').reduce((s, v) => s + v.valor, 0);
+      const quantidadePix = veiculos.filter(v => v.pago && v.formaPagamento === 'pix').length;
+      const quantidadeDinheiro = veiculos.filter(v => v.pago && v.formaPagamento === 'dinheiro').length;
+
+      const relatoriosHTML = `
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
+            <h3 class="font-semibold mb-2 flex items-center gap-2"><i data-lucide="car" class="w-5 h-5"></i>Carros</h3>
+            <ul class="text-sm grid gap-1">
+              <li class="flex justify-between"><span>Arrecadado (pagos)</span><span class="font-semibold">R$ ${totalCarrosPago.toFixed(2)}</span></li>
+              <li class="flex justify-between"><span>Pendente</span><span class="font-semibold">R$ ${pendCarros.toFixed(2)}</span></li>
+              <li class="flex justify-between"><span>Subtotal</span><span class="font-semibold">R$ ${(totalCarrosPago + pendCarros).toFixed(2)}</span></li>
+              <li class="flex justify-between"><span>Itens</span><span class="font-semibold">${carros.length}</span></li>
+            </ul>
+          </div>
+          <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
+            <h3 class="font-semibold mb-2 flex items-center gap-2"><i data-lucide="motorcycle" class="w-5 h-5"></i>Motos</h3>
+            <ul class="text-sm grid gap-1">
+              <li class="flex justify-between"><span>Arrecadado (pagos)</span><span class="font-semibold">R$ ${totalMotosPago.toFixed(2)}</span></li>
+              <li class="flex justify-between"><span>Pendente</span><span class="font-semibold">R$ ${pendMotos.toFixed(2)}</span></li>
+              <li class="flex justify-between"><span>Subtotal</span><span class="font-semibold">R$ ${(totalMotosPago + pendMotos).toFixed(2)}</span></li>
+              <li class="flex justify-between"><span>Itens</span><span class="font-semibold">${motos.length}</span></li>
+            </ul>
+          </div>
+        </div>
+        
+        <!-- Total Geral -->
+        <div class="mt-4 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
+          <h3 class="font-semibold mb-3 flex items-center gap-2 text-lg">
+            <i data-lucide="dollar-sign" class="w-5 h-5 text-emerald-600"></i>
+            Total Geral
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="text-center p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+              <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">R$ ${totalGeral.toFixed(2)}</div>
+              <div class="text-sm text-slate-600 dark:text-slate-300 mt-1">Valor Total</div>
+            </div>
+            <div class="text-center p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+              <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">R$ ${totalPagos.toFixed(2)}</div>
+              <div class="text-sm text-slate-600 dark:text-slate-300 mt-1">Total Pago</div>
+            </div>
+            <div class="text-center p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+              <div class="text-2xl font-bold text-amber-600 dark:text-amber-400">R$ ${totalPendentes.toFixed(2)}</div>
+              <div class="text-sm text-slate-600 dark:text-slate-300 mt-1">Total Pendente</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Formas de Pagamento -->
+        <div class="mt-4 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
+          <h3 class="font-semibold mb-3 flex items-center gap-2 text-lg">
+            <i data-lucide="credit-card" class="w-5 h-5 text-purple-600"></i>
+            Formas de Pagamento
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="text-center p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+              <div class="text-2xl font-bold text-green-600 dark:text-green-400">R$ ${totalPix.toFixed(2)}</div>
+              <div class="text-sm text-slate-600 dark:text-slate-300 mt-1">Total Pix</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 mt-1">${quantidadePix} pagamento(s)</div>
+            </div>
+            <div class="text-center p-4 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
+              <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">R$ ${totalDinheiro.toFixed(2)}</div>
+              <div class="text-sm text-slate-600 dark:text-slate-300 mt-1">Total Dinheiro</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 mt-1">${quantidadeDinheiro} pagamento(s)</div>
+            </div>
+          </div>
+          <div class="mt-3 text-center">
+            <div class="text-sm text-slate-500 dark:text-slate-400">
+              Total de pagamentos: <span class="font-semibold">${quantidadePix + quantidadeDinheiro}</span> • 
+              Pix: <span class="font-semibold text-green-600">${quantidadePix}</span> • 
+              Dinheiro: <span class="font-semibold text-yellow-600">${quantidadeDinheiro}</span>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.getElementById('relatorios-content').innerHTML = relatoriosHTML;
+      window.lucide.createIcons();
+    }
+
+    function renderizarConfig() {
+      const configHTML = `
+        <div class="grid gap-4">
+          <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="font-semibold">Dados</div>
+                <div class="text-sm text-slate-500 dark:text-slate-400">Backup e limpeza</div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="exportarDados()" class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white hover:brightness-110">Exportar</button>
+                <label class="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer">
+                  Importar
+                  <input type="file" accept="application/json" class="hidden" onchange="importarDados(event)">
+                </label>
+                <button onclick="limparTudo()" class="px-3 py-1.5 rounded-xl bg-red-600 text-white hover:brightness-110">Limpar tudo</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.getElementById('config-content').innerHTML = configHTML;
+    }
+
     // FUNÇÕES AUXILIARES
     async function alternarPago(id) {
       const veiculo = veiculos.find(v => v.id === id);
@@ -561,6 +679,7 @@
       }
     }
 
+    // SINCRONIZAÇÃO COMPLETA
     async function sincronizarPendentes() {
       if (!isOnline) {
         alert('Conecte-se à internet para sincronizar');
@@ -581,35 +700,70 @@
           if (response.ok) {
             veiculo.sincronizado = true;
             sucessos++;
+            salvarDados();
           }
         } catch (error) {
           console.log('Erro ao sincronizar:', veiculo.placa);
         }
       }
 
-      salvarDados();
       renderizarVeiculos();
       
       if (sucessos > 0) {
         alert(`${sucessos} veículos sincronizados com sucesso!`);
+      } else if (pendentes.length > 0) {
+        alert('Erro ao sincronizar veículos. Tente novamente.');
+      } else {
+        alert('Todos os dados já estão sincronizados!');
       }
     }
 
-    // [FUNÇÕES renderizarRelatorios() e renderizarConfig() SERIAM IMPLEMENTADAS AQUI]
-    function renderizarRelatorios() {
-      document.getElementById('relatorios-content').innerHTML = `
-        <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
-          <p class="text-sm text-slate-500 dark:text-slate-400">Relatórios serão implementados em breve...</p>
-        </div>
-      `;
+    // FUNÇÕES DE BACKUP
+    function exportarDados() {
+      const dataStr = JSON.stringify(veiculos, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'backup_estaciona_plus.json';
+      link.click();
+      URL.revokeObjectURL(url);
     }
 
-    function renderizarConfig() {
-      document.getElementById('config-content').innerHTML = `
-        <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
-          <p class="text-sm text-slate-500 dark:text-slate-400">Configurações serão implementadas em breve...</p>
-        </div>
-      `;
+    function importarDados(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const dados = JSON.parse(e.target.result);
+          if (Array.isArray(dados)) {
+            veiculos = dados;
+            salvarDados();
+            renderizarResumo();
+            renderizarVeiculos();
+            renderizarRelatorios();
+            alert('Dados importados com sucesso!');
+          } else {
+            alert('Arquivo inválido');
+          }
+        } catch (error) {
+          alert('Erro ao importar arquivo');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function limparTudo() {
+      if (confirm('Tem certeza que deseja limpar TODOS os dados? Esta ação não pode ser desfeita.')) {
+        veiculos = [];
+        salvarDados();
+        renderizarResumo();
+        renderizarVeiculos();
+        renderizarRelatorios();
+        alert('Todos os dados foram removidos!');
+      }
     }
   </script>
 </body>
