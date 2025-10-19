@@ -89,6 +89,7 @@
     let isOnline = false;
     let currentTab = 'todos';
     let currentSearch = '';
+    let sincronizando = false;
 
     // INICIALIZAÇÃO
     document.addEventListener('DOMContentLoaded', function() {
@@ -97,8 +98,13 @@
       renderizarApp();
       configurarEventos();
       
-      // Verificar conexão a cada 30 segundos
-      setInterval(verificarConexao, 30000);
+      // Verificar conexão e sincronizar a cada 30 segundos
+      setInterval(function() {
+        verificarConexao();
+        if (isOnline) {
+          sincronizarComBackend();
+        }
+      }, 30000);
     });
 
     // CARREGAR DADOS
@@ -120,11 +126,6 @@
         const response = await fetch(API_BASE_URL);
         isOnline = response.ok;
         atualizarStatus();
-        
-        // Se voltou online, tenta sincronizar
-        if (isOnline) {
-          setTimeout(sincronizarPendentes, 1000);
-        }
       } catch (error) {
         isOnline = false;
         atualizarStatus();
@@ -140,6 +141,9 @@
             <div class="flex items-center gap-2">
               <i data-lucide="wifi" class="w-4 h-4 text-green-600"></i>
               <span class="text-green-800 text-sm">Conectado ao servidor</span>
+              <button onclick="sincronizarComBackend()" class="ml-auto bg-green-100 hover:bg-green-200 text-green-800 px-3 py-1 rounded-lg text-sm transition">
+                Sincronizar
+              </button>
             </div>
           `;
           statusElement.className = 'p-3 rounded-xl bg-green-50 border border-green-200 animate-fadeIn';
@@ -148,8 +152,8 @@
             <div class="flex items-center gap-2">
               <i data-lucide="wifi-off" class="w-4 h-4 text-amber-600"></i>
               <span class="text-amber-800 text-sm">Modo offline - dados salvos localmente</span>
-              <button onclick="sincronizarPendentes()" class="ml-auto bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1 rounded-lg text-sm transition">
-                Sincronizar
+              <button onclick="verificarConexao()" class="ml-auto bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1 rounded-lg text-sm transition">
+                Tentar Conectar
               </button>
             </div>
           `;
@@ -301,6 +305,94 @@
       window.lucide.createIcons();
     }
 
+    // 🔄 SISTEMA DE SINCRONIZAÇÃO MELHORADO
+    async function sincronizarComBackend() {
+      if (sincronizando || !isOnline) return;
+      
+      sincronizando = true;
+      const statusElement = document.getElementById('status-alert');
+      
+      try {
+        statusElement.innerHTML = `
+          <div class="flex items-center gap-2">
+            <i data-lucide="refresh-cw" class="w-4 h-4 text-blue-600 animate-spin"></i>
+            <span class="text-blue-800 text-sm">Sincronizando com o servidor...</span>
+          </div>
+        `;
+        
+        // 1. BUSCAR DADOS DO BACKEND
+        const response = await fetch(API_BASE_URL);
+        if (!response.ok) throw new Error('Erro ao buscar dados');
+        
+        const dadosBackend = await response.json();
+        
+        // 2. SINCRONIZAR: Combinar dados locais com backend
+        const placasBackend = new Set(dadosBackend.map(v => v.placa));
+        
+        // Adicionar veículos locais que não estão no backend
+        for (const veiculoLocal of veiculos) {
+          if (!placasBackend.has(veiculoLocal.placa) && !veiculoLocal.sincronizado) {
+            try {
+              const response = await fetch(API_BASE_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(veiculoLocal)
+              });
+              
+              if (response.ok) {
+                veiculoLocal.sincronizado = true;
+              }
+            } catch (error) {
+              console.log('Erro ao enviar veículo:', veiculoLocal.placa);
+            }
+          }
+        }
+        
+        // 3. ATUALIZAR DADOS LOCAIS com informações do backend
+        const veiculosCombinados = [...veiculos];
+        
+        for (const veiculoBackend of dadosBackend) {
+          const existeLocal = veiculosCombinados.find(v => v.placa === veiculoBackend.placa);
+          if (!existeLocal) {
+            veiculosCombinados.push({
+              ...veiculoBackend,
+              sincronizado: true
+            });
+          }
+        }
+        
+        veiculos = veiculosCombinados;
+        salvarDados();
+        
+        // 4. ATUALIZAR INTERFACE
+        renderizarResumo();
+        renderizarVeiculos();
+        renderizarRelatorios();
+        
+        statusElement.innerHTML = `
+          <div class="flex items-center gap-2">
+            <i data-lucide="check-circle" class="w-4 h-4 text-green-600"></i>
+            <span class="text-green-800 text-sm">Sincronizado com sucesso!</span>
+          </div>
+        `;
+        
+        setTimeout(() => atualizarStatus(), 3000);
+        
+      } catch (error) {
+        console.error('Erro na sincronização:', error);
+        statusElement.innerHTML = `
+          <div class="flex items-center gap-2">
+            <i data-lucide="x-circle" class="w-4 h-4 text-red-600"></i>
+            <span class="text-red-800 text-sm">Erro na sincronização</span>
+          </div>
+        `;
+        setTimeout(() => atualizarStatus(), 3000);
+      } finally {
+        sincronizando = false;
+        window.lucide.createIcons();
+      }
+    }
+
     // FUNÇÕES PRINCIPAIS
     async function adicionarVeiculo(e) {
       e.preventDefault();
@@ -337,7 +429,7 @@
       veiculos.unshift(novoVeiculo);
       salvarDados();
 
-      // Tentar enviar para API
+      // Tentar enviar para API imediatamente se online
       if (isOnline) {
         try {
           const response = await fetch(API_BASE_URL, {
@@ -362,9 +454,17 @@
 
       // Limpar formulário
       document.getElementById('add-form').reset();
+      
+      // Sincronizar automaticamente se estiver online
+      if (isOnline) {
+        setTimeout(sincronizarComBackend, 1000);
+      }
     }
 
-    // FUNÇÕES DE RENDERIZAÇÃO
+    // [AS FUNÇÕES renderizarResumo(), renderizarTabs(), renderizarVeiculos(), renderizarRelatorios(), 
+    // renderizarConfig(), alternarPago(), removerVeiculo() PERMANECEM EXATAMENTE IGUAIS À VERSÃO ANTERIOR]
+    
+    // FUNÇÕES DE RENDERIZAÇÃO (mantidas da versão anterior)
     function renderizarResumo() {
       const carros = veiculos.filter(v => v.tipo === 'carro');
       const motos = veiculos.filter(v => v.tipo === 'moto');
@@ -676,45 +776,6 @@
         renderizarResumo();
         renderizarVeiculos();
         renderizarRelatorios();
-      }
-    }
-
-    // SINCRONIZAÇÃO COMPLETA
-    async function sincronizarPendentes() {
-      if (!isOnline) {
-        alert('Conecte-se à internet para sincronizar');
-        return;
-      }
-
-      const pendentes = veiculos.filter(v => !v.sincronizado);
-      let sucessos = 0;
-
-      for (const veiculo of pendentes) {
-        try {
-          const response = await fetch(API_BASE_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(veiculo)
-          });
-          
-          if (response.ok) {
-            veiculo.sincronizado = true;
-            sucessos++;
-            salvarDados();
-          }
-        } catch (error) {
-          console.log('Erro ao sincronizar:', veiculo.placa);
-        }
-      }
-
-      renderizarVeiculos();
-      
-      if (sucessos > 0) {
-        alert(`${sucessos} veículos sincronizados com sucesso!`);
-      } else if (pendentes.length > 0) {
-        alert('Erro ao sincronizar veículos. Tente novamente.');
-      } else {
-        alert('Todos os dados já estão sincronizados!');
       }
     }
 
