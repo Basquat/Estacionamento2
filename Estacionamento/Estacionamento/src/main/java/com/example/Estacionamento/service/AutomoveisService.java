@@ -1,9 +1,9 @@
 package com.Estacionamento2.service;
 
-import com.Estacionamento2.Entitys.Automoveis;
-import com.Estacionamento2.Entitys.Payment;
-import com.Estacionamento2.repository.AutomoveisRepository;
-import com.Estacionamento2.repository.PaymentRepository;
+import com.Estacionamento2.Entitys.automoveis;
+import com.Estacionamento2.Entitys.paymentEntity;
+import com.Estacionamento2.repository.automoveisRepository;
+import com.Estacionamento2.repository.paymentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,8 +28,8 @@ public class AutomoveisService {
         return automoveisrepository.findById(id);
     }
     
-    public Automoveis save(Automoveis automoveis) {
-        return automoveisrepository.save(automoveis);
+    public Automoveis save(automoveis Automoveis) {
+        return automoveisrepository.save(Automoveis);
     }
     
     public void deleteById(Long id) {
@@ -38,10 +38,10 @@ public class AutomoveisService {
     
     @Transactional
     public Automoveis togglePagamento(Long id) {
-        Automoveis automoveis = automoveisrepository.findById(id)
+        automoveis Automoveis = automoveisrepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Automóvel não encontrado"));
         
-        automoveis.setPago(!automoveis.getPago());
+        Automoveis.setPago(!automoveis.getPago());
         return automoveisrepository.save(automoveis);
     }
     
