@@ -1,7 +1,7 @@
 package com.Estacionamento2.controller;
 
-import com.Estacionamento2.Entitys.Payment;
-import com.Estacionamento2.service.PaymentService;
+import com.Estacionamento2.Entitys.payment;
+import com.Estacionamento2.service.paymentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,26 +14,26 @@ import java.util.List;
 public class PaymentController {
     
     @Autowired
-    private PaymentService paymentService;
+    private paymentService PaymentService;
     
     @GetMapping
     public List<Payment> listarTodos() {
-        return paymentService.findAll();
+        return PaymentService.findAll();
     }
     
     @GetMapping("/automovel/{automovelId}")
     public List<Payment> listarPorAutomovel(@PathVariable Long automovelId) {
-        return paymentService.findByAutomovelId(automovelId);
+        return PaymentService.findByAutomovelId(automovelId);
     }
     
     @GetMapping("/total")
     public ResponseEntity<Double> getTotalPayment() {
-        Double total = paymentService.getTotalPayment();
+        Double total = PaymentService.getTotalPayment();
         return ResponseEntity.ok(total);
     }
     
     @PostMapping
     public Payment criarPayment(@RequestBody Payment payment) {
-        return paymentService.save(payment);
+        return PaymentService.save(payment);
     }
 }
