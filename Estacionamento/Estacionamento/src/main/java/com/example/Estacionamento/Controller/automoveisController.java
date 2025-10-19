@@ -4,7 +4,7 @@ import com.Estacionamento2.dto.AutomoveisDTO;
 import com.Estacionamento2.Entity.automoveis;
 import com.Estacionamento2.Entity.TipoAutomoveis;
 import com.Estacionamento2.Entity.FormaPagamento;
-import com.Estacionamento2.service.AutomoveisService;
+import com.Estacionamento2.service.automoveisService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,11 +20,11 @@ import java.util.stream.Collectors;
 public class automoveisController {
     
     @Autowired
-    private AutomoveisService automoveisService;
+    private automoveisService AutomoveisService;
     
     @GetMapping
     public List<AutomoveisDTO> listarTodos() {
-        return automoveisService.findAll().stream()
+        return AutomoveisService.findAll().stream()
             .map(this::toDTO)
             .collect(Collectors.toList());
     }
@@ -32,7 +32,7 @@ public class automoveisController {
     @PostMapping
     public ResponseEntity<?> adicionarAutomoveis(@RequestBody AutomoveisDTO automoveisDTO) {
         try {
-            if (automoveisService.placaExists(automoveisDTO.getPlaca())) {
+            if (AutomoveisService.placaExists(automoveisDTO.getPlaca())) {
                 return ResponseEntity.badRequest()
                     .body("Placa " + automoveisDTO.getPlaca() + " já está cadastrada");
             }
@@ -45,7 +45,7 @@ public class automoveisController {
             Automoveis.setFormaPagamento(automoveisDTO.getFormaPagamento() != null ? 
                 FormaPagamento.valueOf(automoveisDTO.getFormaPagamento().toUpperCase()) : null);
             
-            automoveis automoveisSalvo = automoveisService.save(automoveis);
+            Automoveis automoveisSalvo = AutomoveisService.save(Automoveis);
             return ResponseEntity.ok(toDTO(automoveisSalvo));
             
         } catch (Exception e) {
@@ -57,8 +57,8 @@ public class automoveisController {
     @PutMapping("/{id}/pago")
     public ResponseEntity<?> togglePagamento(@PathVariable Long id) {
         try {
-            automoveis Automoveis = automoveisService.togglePagamento(id);
-            return ResponseEntity.ok(toDTO(automoveis));
+            automoveis Automoveis = AutomoveisService.togglePagamento(id);
+            return ResponseEntity.ok(toDTO(Automoveis));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                 .body("Erro ao atualizar pagamento: " + e.getMessage());
@@ -68,7 +68,7 @@ public class automoveisController {
     @DeleteMapping("/{id}")
     public ResponseEntity<?> removerAutomoveis(@PathVariable Long id) {
         try {
-            automoveisService.deleteById(id);
+            AutomoveisService.deleteById(id);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest()
@@ -76,14 +76,14 @@ public class automoveisController {
         }
     }
     
-    private AutomoveisDTO toDTO(Automoveis automoveis) {
+    private AutomoveisDTO toDTO(automoveis Automoveis) {
         return new AutomoveisDTO(
             Automoveis.getVehiclesId(),
             Automoveis.getPlaca(),
             Automoveis.getType().name(),
             Automoveis.getValor(),
             Automoveis.getPago(),
-            Automoveis.getFormaPagamento() != null ? automoveis.getFormaPagamento().name() : null,
+            Automoveis.getFormaPagamento() != null ? Automoveis.getFormaPagamento().name() : null,
             Automoveis.getEntrada()
         );
     }
