@@ -1,6 +1,6 @@
 package com.Estacionamento2.repository;
 
-import com.estacionaplus.model.Veiculo;
+import com.estacionamento2.Entitys.automoveis;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -9,21 +9,21 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface automoveisRepository extends JpaRepository<automoveis, Long> {
-    Optional<Veiculo> findByPlaca(String placa);
-    List<Veiculo> findByType(String type);
-    List<Veiculo> findByPago(Boolean pago);
+public interface automoveisRepository extends JpaRepository<Automoveis, Long> {
+    Optional<Automoveis> findByPlaca(String placa);
+    List<Automoveis> findByType(String type);
+    List<Automoveis> findByPago(Boolean pago);
     boolean existsByPlaca(String placa);
     
-    @Query("SELECT COUNT(v), SUM(v.valor) FROM Veiculo v WHERE v.pago = true AND v.formaPagamento = 'PIX'")
-    Object[] getTotalPix();
+    @Query("SELECT COUNT(a), SUM(a.valor) FROM Automoveis a WHERE a.pago = true AND a.formaPagamento = 'PIX'")
+    Object[] getTotalPayment();
     
-    @Query("SELECT COUNT(v), SUM(v.valor) FROM Veiculo v WHERE v.pago = true AND v.formaPagamento = 'DINHEIRO'")
+    @Query("SELECT COUNT(a), SUM(a.valor) FROM Automoveis a WHERE a.pago = true AND a.formaPagamento = 'DINHEIRO'")
     Object[] getTotalDinheiro();
     
-    @Query("SELECT v.type, COUNT(v), SUM(v.valor) FROM Veiculo v WHERE v.pago = true GROUP BY v.type")
+    @Query("SELECT a.type, COUNT(a), SUM(a.valor) FROM Automoveis a WHERE a.pago = true GROUP BY a.type")
     List<Object[]> getTotaisPorTipoPagos();
     
-    @Query("SELECT v.type, COUNT(v), SUM(v.valor) FROM Veiculo v WHERE v.pago = false GROUP BY v.type")
+    @Query("SELECT a.type, COUNT(a), SUM(a.valor) FROM Automoveis a WHERE a.pago = false GROUP BY a.type")
     List<Object[]> getTotaisPorTipoPendentes();
 }
