@@ -1,41 +1,52 @@
-package com.example.Estacionamento.Entitys;
+package com.estacionaplus.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
 
 @Entity
-public class automoveis {
+@Table(name = "veiculos")
+public class Veiculo {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "vehiclesid")
+    private Long vehiclesId;
+    
+    @Column(nullable = false, unique = true)
+    private String placa;
+    
+    @Column(nullable = false)
+    private Double valor;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TipoVeiculo type;
+    
+    @Column(nullable = false)
+    private Boolean pago = false;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "forma_pagamento")
+    private FormaPagamento formaPagamento;
+    
+    @Column(nullable = false)
+    private LocalDateTime entrada;
+    
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+    
+    // Construtores, Getters e Setters
+    public Veiculo() {
+        this.entrada = LocalDateTime.now();
+        this.createdAt = LocalDateTime.now();
+    }
+    
+    // ... getters e setters
+}
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
-  private Long ID;
+enum TipoVeiculo {
+    CARRO, MOTO
+}
 
-  public String placa;
-  public boolean tipo;
-
-  public automoveis() {
-  }
-
-  public automoveis(String placa, boolean tipo) {
-    this.placa = placa;
-    this.tipo = tipo;
-  }
-
-  public String getPlaca() {
-    return placa;
-  }
-
-  public void setPlaca(String placa) {
-    this.placa = placa;
-  }
-
-  public boolean getTipo() {
-    return tipo;
-  }
-
-  public void setTipo(boolean tipo) {
-    this.tipo = tipo;
-  }
+enum FormaPagamento {
+    PIX, DINHEIRO
 }
