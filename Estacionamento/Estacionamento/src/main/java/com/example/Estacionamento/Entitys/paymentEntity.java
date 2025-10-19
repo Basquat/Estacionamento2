@@ -32,8 +32,8 @@ public class paymentEntity {
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     
-    public Double getValor() { return valor; }
-    public void setValor(Double valor) { this.valor = valor; }
+    public float getValor() { return valor; }
+    public void setValor(float valor) { this.valor = valor; }
     
     public StatusPagamento getStatus() { return status; }
     public void setStatus(StatusPagamento status) { this.status = status; }
