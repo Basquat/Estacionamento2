@@ -17,8 +17,8 @@ public class paymentService {
         return paymentrepository.findAll();
     }
     
-    public Payment save(Payment payment) {
-        return paymentrepository.save(payment);
+    public Payment save(paymentEntity PaymentEntity) {
+        return paymentrepository.save(PaymentEntity);
     }
     
     public List<Payment> findByAutomovelId(Long automovelId) {
