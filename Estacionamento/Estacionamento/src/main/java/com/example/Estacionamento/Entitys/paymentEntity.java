@@ -24,7 +24,7 @@ public class paymentEntity {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
     
-    public Payment() {
+    public paymentEntity() {
         this.createdAt = LocalDateTime.now();
     }
     
