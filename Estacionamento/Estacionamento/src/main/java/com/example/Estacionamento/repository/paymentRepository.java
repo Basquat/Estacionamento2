@@ -1,6 +1,6 @@
 package com.Estacionamento2.repository;
 
-import com.estacionamento2.model.Payment;
+import com.Estacionamento2.Entitys.Payment;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
