@@ -20,11 +20,11 @@ import java.util.stream.Collectors;
 public class automoveisController {
     
     @Autowired
-    private automoveisService AutomoveisService;
+    private AutomoveisService automoveisService;
     
     @GetMapping
     public List<AutomoveisDTO> listarTodos() {
-        return AutomoveisService.findAll().stream()
+        return automoveisService.findAll().stream()
             .map(this::toDTO)
             .collect(Collectors.toList());
     }
@@ -32,7 +32,7 @@ public class automoveisController {
     @PostMapping
     public ResponseEntity<?> adicionarAutomoveis(@RequestBody AutomoveisDTO automoveisDTO) {
         try {
-            if (AutomoveisService.placaExists(automoveisDTO.getPlaca())) {
+            if (automoveisService.placaExists(automoveisDTO.getPlaca())) {
                 return ResponseEntity.badRequest()
                     .body("Placa " + automoveisDTO.getPlaca() + " já está cadastrada");
             }
@@ -45,7 +45,7 @@ public class automoveisController {
             Automoveis.setFormaPagamento(automoveisDTO.getFormaPagamento() != null ? 
                 FormaPagamento.valueOf(automoveisDTO.getFormaPagamento().toUpperCase()) : null);
             
-            Automoveis automoveisSalvo = AutomoveisService.save(Automoveis);
+            Automoveis automoveisSalvo = automoveisService.save(Automoveis);
             return ResponseEntity.ok(toDTO(automoveisSalvo));
             
         } catch (Exception e) {
@@ -57,7 +57,7 @@ public class automoveisController {
     @PutMapping("/{id}/pago")
     public ResponseEntity<?> togglePagamento(@PathVariable Long id) {
         try {
-            automoveis Automoveis = AutomoveisService.togglePagamento(id);
+            automoveis Automoveis = automoveisService.togglePagamento(id);
             return ResponseEntity.ok(toDTO(Automoveis));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
@@ -68,7 +68,7 @@ public class automoveisController {
     @DeleteMapping("/{id}")
     public ResponseEntity<?> removerAutomoveis(@PathVariable Long id) {
         try {
-            AutomoveisService.deleteById(id);
+            automoveisService.deleteById(id);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest()
