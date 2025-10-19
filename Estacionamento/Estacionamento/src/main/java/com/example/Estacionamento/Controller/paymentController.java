@@ -33,7 +33,7 @@ public class PaymentController {
     }
     
     @PostMapping
-    public Payment criarPayment(@RequestBody Payment payment) {
-        return PaymentService.save(payment);
+    public Payment criarPayment(@RequestBody payment Payment) {
+        return PaymentService.save(Payment);
     }
 }
