@@ -1,32 +1,32 @@
-package com.example.Estacionamento.service;
+package com.Estacionamento2.service;
 
-import com.example.Estacionamento.Entitys.paymentEntity;
-import com.example.Estacionamento.repository.paymentRepository;
+import com.Estacionamento2.model.paymentEntity;
+import com.Estacionamento2.repository.paymentRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
 import java.util.List;
 
 @Service
 public class paymentService {
-  private final paymentRepository payment;
-
-  public paymentService(paymentRepository payment) {
-    this.payment = payment;
-  }
-
-  public List<paymentEntity> findALL() {
-    return payment.findAll();
-  }
-
-  public paymentEntity findByid(Long id) {
-    return payment.findById(id).orElse(null);
-  }
-  //
-
-  public paymentEntity save(paymentEntity payEntity) {
-    return payment.save(payEntity);
-  }
-
-  public void delete(Long id) {
-    payment.deleteById(id);
-  }
+    
+    @Autowired
+    private paymentRepository paymentrepository;
+    
+    public List<Payment> findAll() {
+        return paymentrepository.findAll();
+    }
+    
+    public Payment save(Payment payment) {
+        return paymentrepository.save(payment);
+    }
+    
+    public List<Payment> findByAutomovelId(Long automovelId) {
+        return paymentrepository.findByAutomoveisId(automovelId);
+    }
+    
+    public Double getTotalPayment() {
+        Double total = paymentrepository.findTotalPaymentPago();
+        return total != null ? total : 0.0;
+    }
 }
