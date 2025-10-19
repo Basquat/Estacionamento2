@@ -1,4 +1,4 @@
-package com.estacionaplus.model;
+package com.Estacionamento2.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
