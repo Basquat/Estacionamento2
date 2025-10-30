@@ -10,8 +10,6 @@
 
   <title>Estaciona+ • Controle de Placas</title>
 
-
-
   <!-- Fonte -->
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -50,6 +48,8 @@
 
             pop: { '0%': { transform:'scale(0.95)', opacity:0 }, '100%': { transform:'scale(1)', opacity:1 }},
 
+            blink: { '0%,100%':{opacity:.4}, '50%':{opacity:1} }
+
           },
 
           animation: {
@@ -57,6 +57,8 @@
             fadeIn: 'fadeIn .35s ease-out',
 
             pop: 'pop .2s ease-out',
+
+            blink: 'blink 1.2s ease-in-out infinite'
 
           }
 
@@ -76,6 +78,18 @@
 
 
 
+  <!-- React 18 + Babel (sem build) -->
+
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+
+
+  <meta name="color-scheme" content="light dark" />
+
   <style>
 
     ::-webkit-scrollbar{ width:10px; height:10px }
@@ -84,13 +98,15 @@
 
     ::-webkit-scrollbar-track{ background:transparent }
 
+
+
+    .loading { opacity: 0.6; pointer-events: none; }
+
   </style>
 
 </head>
 
-<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-
-  <!-- Header -->
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 selection:bg-blue-200 dark:selection:bg-blue-800/60">
 
   <header class="sticky top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-white/70 dark:supports-[backdrop-filter]:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800">
 
@@ -136,17 +152,9 @@
 
 
 
-  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
-
-    <!-- Conteúdo será inserido aqui via JavaScript -->
-
-    <div id="app-content"></div>
-
-  </main>
+  <main id="root" class="max-w-6xl mx-auto px-4 sm:px-6 py-6"></main>
 
 
-
-  <!-- Footer Mobile -->
 
   <footer class="sticky bottom-0 z-40 md:hidden backdrop-blur supports-[backdrop-filter]:bg-white/70 dark:supports-[backdrop-filter]:bg-slate-900/60 border-t border-slate-200/60 dark:border-slate-800">
 
@@ -166,619 +174,927 @@
 
 
 
-  <script>
+  <script type="text/babel">
 
-    // CONFIGURAÇÃO
-
-    const API_BASE_URL = 'https://estacionamento2.up.railway.app/api/veiculos';
-
-    let veiculos = [];
-
-    let isOnline = false;
-
-    let currentTab = 'todos';
-
-    let currentSearch = '';
+    const { useState, useEffect, useMemo } = React;
 
 
 
-    // INICIALIZAÇÃO
+    // --------- CONFIGURAÇÃO DA API ---------
 
-    document.addEventListener('DOMContentLoaded', function() {
-
-      carregarDados();
-
-      verificarConexao();
-
-      renderizarApp();
-
-      configurarEventos();
+    const API_BASE_URL = 'https://estacionamento2-production.up.railway.app/api/veiculos';
 
 
 
-      // Verificar conexão a cada 30 segundos
+    // --------- Serviço de API ---------
 
-      setInterval(verificarConexao, 30000);
+    const apiService = {
 
-    });
-
-
-
-    // CARREGAR DADOS
-
-    function carregarDados() {
-
-      const dadosSalvos = localStorage.getItem('estacionaplus_data');
-
-      if (dadosSalvos) {
-
-        veiculos = JSON.parse(dadosSalvos);
-
-      }
-
-    }
-
-
-
-    // SALVAR DADOS
-
-    function salvarDados() {
-
-      localStorage.setItem('estacionaplus_data', JSON.stringify(veiculos));
-
-    }
-
-
-
-    // VERIFICAR CONEXÃO
-
-    async function verificarConexao() {
-
-      try {
+      async getAll() {
 
         const response = await fetch(API_BASE_URL);
 
-        isOnline = response.ok;
+        if (!response.ok) throw new Error('Erro ao carregar veículos');
 
-        atualizarStatus();
+        return await response.json();
 
-
-
-        // Se voltou online, tenta sincronizar
-
-        if (isOnline) {
-
-          setTimeout(sincronizarPendentes, 1000);
-
-        }
-
-      } catch (error) {
-
-        isOnline = false;
-
-        atualizarStatus();
-
-      }
-
-    }
+      },
 
 
 
-    // ATUALIZAR STATUS
+      async create(veiculo) {
 
-    function atualizarStatus() {
+        const response = await fetch(API_BASE_URL, {
 
-      const statusElement = document.getElementById('status-alert');
+          method: 'POST',
 
-      if (statusElement) {
+          headers: { 'Content-Type': 'application/json' },
 
-        if (isOnline) {
-
-          statusElement.innerHTML = `
-
-            <div class="flex items-center gap-2">
-
-              <i data-lucide="wifi" class="w-4 h-4 text-green-600"></i>
-
-              <span class="text-green-800 text-sm">Conectado ao servidor</span>
-
-            </div>
-
-          `;
-
-          statusElement.className = 'p-3 rounded-xl bg-green-50 border border-green-200 animate-fadeIn';
-
-        } else {
-
-          statusElement.innerHTML = `
-
-            <div class="flex items-center gap-2">
-
-              <i data-lucide="wifi-off" class="w-4 h-4 text-amber-600"></i>
-
-              <span class="text-amber-800 text-sm">Modo offline - dados salvos localmente</span>
-
-              <button onclick="sincronizarPendentes()" class="ml-auto bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1 rounded-lg text-sm transition">
-
-                Sincronizar
-
-              </button>
-
-            </div>
-
-          `;
-
-          statusElement.className = 'p-3 rounded-xl bg-amber-50 border border-amber-200 animate-fadeIn';
-
-        }
-
-        window.lucide.createIcons();
-
-      }
-
-    }
-
-
-
-    // CONFIGURAR EVENTOS
-
-    function configurarEventos() {
-
-      // Tema
-
-      document.getElementById('themeToggle').addEventListener('click', function() {
-
-        document.documentElement.classList.toggle('dark');
-
-        window.lucide.createIcons();
-
-      });
-
-
-
-      // Navegação
-
-      document.querySelectorAll('nav a, footer a').forEach(link => {
-
-        link.addEventListener('click', function(e) {
-
-          e.preventDefault();
-
-          const target = this.getAttribute('href').substring(1);
-
-          document.getElementById(target).scrollIntoView({ behavior: 'smooth' });
+          body: JSON.stringify(veiculo)
 
         });
 
-      });
+        if (!response.ok) throw new Error('Erro ao criar veículo');
+
+        return await response.json();
+
+      },
+
+
+
+      async togglePago(id) {
+
+        const response = await fetch(`${API_BASE_URL}/${id}/pago`, {
+
+          method: 'PUT'
+
+        });
+
+        if (!response.ok) throw new Error('Erro ao atualizar pagamento');
+
+        return await response.json();
+
+      },
+
+
+
+      async updateValor(id, valor) {
+
+        const response = await fetch(`${API_BASE_URL}/${id}/valor`, {
+
+          method: 'PUT',
+
+          headers: { 'Content-Type': 'application/json' },
+
+          body: JSON.stringify({ valor })
+
+        });
+
+        if (!response.ok) throw new Error('Erro ao atualizar valor');
+
+        return await response.json();
+
+      },
+
+
+
+      async delete(id) {
+
+        const response = await fetch(`${API_BASE_URL}/${id}`, {
+
+          method: 'DELETE'
+
+        });
+
+        if (!response.ok) throw new Error('Erro ao deletar veículo');
+
+      }
+
+    };
+
+
+
+    // --------- Utilidades ---------
+
+    function formatBRL(value){
+
+      if(value === '' || value === null || value === undefined) return '';
+
+      const n = Number(value) || 0;
+
+      return n.toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
 
     }
 
 
 
-    // RENDERIZAR APP COMPLETO
+    function uuid(){
 
-    function renderizarApp() {
+      return crypto?.randomUUID?.() || ('id-' + Math.random().toString(36).slice(2));
 
-      const appContent = document.getElementById('app-content');
-
-      appContent.innerHTML = `
-
-        <!-- Status Alert -->
-
-        <div id="status-alert" class="mb-6"></div>
+    }
 
 
 
-        <!-- Seção Início -->
+    // --------- Componentes ---------
 
-        <section id="inicio" class="scroll-mt-24 py-6">
+    function StatCard({icon, label, value, sub}){
 
-          <div class="flex items-end justify-between mb-3">
+      return (
 
-            <div>
+        <div className="group p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 shadow-sm hover:shadow-md transition animate-fadeIn">
 
-              <h2 class="text-xl sm:text-2xl font-bold tracking-tight">Resumo</h2>
+          <div className="flex items-center gap-3">
 
-              <p class="text-sm text-slate-500 dark:text-slate-400">Visão geral rápida do caixa e movimentação</p>
+            <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600/10 text-blue-700 dark:text-blue-300">
+
+              <i data-lucide={icon} className="w-5 h-5"></i>
+
+            </span>
+
+            <div className="flex-1">
+
+              <div className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</div>
+
+              <div className="text-2xl font-semibold">{value}</div>
+
+              {sub && <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">{sub}</div>}
 
             </div>
 
           </div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="resumo-cards"></div>
+        </div>
 
-        </section>
+      )
+
+    }
 
 
 
-        <!-- Seção Placas -->
+    function Tabs({tab, setTab}){
 
-        <section id="placas" class="scroll-mt-24 py-6">
+      const tabs = [
 
-          <div class="flex items-end justify-between mb-3">
+        {id:'todos', label:'Todos', icon:'list'},
 
-            <div>
+        {id:'carro', label:'Carros', icon:'car'},
 
-              <h2 class="text-xl sm:text-2xl font-bold tracking-tight">Placas</h2>
+        {id:'moto', label:'Motos', icon:'motorcycle'},
 
-              <p class="text-sm text-slate-500 dark:text-slate-400">Gerencie entradas, pagamentos e valores</p>
+      ];
 
-            </div>
+      return (
 
-            <a href="#relatorios" class="hidden md:inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800">
+        <div className="flex w-full overflow-x-auto gap-2 pb-1">
 
-              <i data-lucide="pie-chart" class="w-4 h-4"></i>
+          {tabs.map(t => (
 
-              Ir para Relatórios
+            <button key={t.id}
 
-            </a>
+              onClick={() => setTab(t.id)}
+
+              className={
+
+                'flex items-center gap-2 px-4 py-2 rounded-2xl border transition ' +
+
+                (tab===t.id
+
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-glow'
+
+                  : 'bg-white/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800')
+
+              }>
+
+              <i data-lucide={t.icon} className="w-4 h-4"></i>
+
+              <span>{t.label}</span>
+
+            </button>
+
+          ))}
+
+        </div>
+
+      )
+
+    }
+
+
+
+    function AddForm({onAdd, loading}){
+
+      const [placa, setPlaca] = useState('');
+
+      const [tipo, setTipo] = useState('carro');
+
+      const [valor, setValor] = useState('');
+
+      const [pago, setPago] = useState(false);
+
+      const [formaPagamento, setFormaPagamento] = useState('dinheiro');
+
+
+
+      async function handleSubmit(e){
+
+        e.preventDefault();
+
+        if(!placa.trim() || loading) return;
+
+
+
+        const novo = { 
+
+          placa: placa.trim().toUpperCase(), 
+
+          tipo, 
+
+          valor: Number(valor)||0, 
+
+          pago, 
+
+          formaPagamento
+
+        };
+
+
+
+        await onAdd(novo);
+
+        setPlaca(''); 
+
+        setValor(''); 
+
+        setPago(false); 
+
+        setTipo('carro'); 
+
+        setFormaPagamento('dinheiro');
+
+      }
+
+
+
+      return (
+
+        <form onSubmit={handleSubmit} className={`grid gap-3 md:grid-cols-12 items-end p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 animate-fadeIn ${loading ? 'opacity-50' : ''}`}>
+
+          <div className="md:col-span-3">
+
+            <label className="text-xs text-slate-500 dark:text-slate-400">Placa</label>
+
+            <input 
+
+              value={placa} 
+
+              onChange={e=>setPlaca(e.target.value)} 
+
+              placeholder="ABC-1234"
+
+              disabled={loading}
+
+              className="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:ring-4 focus:ring-blue-500/20"/>
 
           </div>
 
-          <div class="grid gap-4">
+          <div>
 
-            <!-- Formulário -->
+            <label className="text-xs text-slate-500 dark:text-slate-400">Tipo</label>
 
-            <form id="add-form" class="grid gap-3 md:grid-cols-12 items-end p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 animate-fadeIn">
+            <select 
 
-              <div class="md:col-span-3">
+              value={tipo} 
 
-                <label class="text-xs text-slate-500 dark:text-slate-400">Placa</label>
+              onChange={e=>setTipo(e.target.value)}
 
-                <input type="text" id="placa-input" placeholder="ABC-1234" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:ring-4 focus:ring-blue-500/20">
+              disabled={loading}
+
+              className="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:ring-4 focus:ring-blue-500/20">
+
+              <option value="carro">Carro</option>
+
+              <option value="moto">Moto</option>
+
+            </select>
+
+          </div>
+
+          <div className="md:col-span-2">
+
+            <label className="text-xs text-slate-500 dark:text-slate-400">Valor (R$)</label>
+
+            <input 
+
+              value={valor} 
+
+              onChange={e=>setValor(e.target.value.replace(',','.'))} 
+
+              type="number" 
+
+              step="0.01" 
+
+              min="0" 
+
+              placeholder="0,00"
+
+              disabled={loading}
+
+              className="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:ring-4 focus:ring-blue-500/20"/>
+
+          </div>
+
+          <div className="md:col-span-2">
+
+            <label className="text-xs text-slate-500 dark:text-slate-400">Pagamento</label>
+
+            <select 
+
+              value={formaPagamento} 
+
+              onChange={e=>setFormaPagamento(e.target.value)}
+
+              disabled={loading}
+
+              className="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:ring-4 focus:ring-blue-500/20">
+
+              <option value="dinheiro">Dinheiro</option>
+
+              <option value="pix">Pix</option>
+
+            </select>
+
+          </div>
+
+          <div className="flex items-center gap-2 md:col-span-2">
+
+            <input 
+
+              id="pago" 
+
+              type="checkbox" 
+
+              checked={pago} 
+
+              onChange={e=>setPago(e.target.checked)} 
+
+              disabled={loading}
+
+              className="w-4 h-4 rounded border-slate-300 text-blue-600"/>
+
+            <label htmlFor="pago" className="text-sm">Pago</label>
+
+          </div>
+
+          <div className="md:col-span-2 flex justify-end">
+
+            <button 
+
+              disabled={loading}
+
+              className="w-full md:w-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:brightness-110 active:scale-95 transition disabled:opacity-50">
+
+              <i data-lucide={loading ? "loader" : "plus"} className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}></i>
+
+              {loading ? 'Adicionando...' : 'Adicionar'}
+
+            </button>
+
+          </div>
+
+        </form>
+
+      )
+
+    }
+
+
+
+    function Row({item, onTogglePago, onUpdateValor, onDelete, loading}){
+
+      const [editing, setEditing] = useState(false);
+
+      const [tempValor, setTempValor] = useState(item.valor);
+
+
+
+      async function save(){ 
+
+        await onUpdateValor(item.id, Number(tempValor)||0); 
+
+        setEditing(false); 
+
+      }
+
+
+
+      return (
+
+        <div className={`p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 hover:shadow-sm transition animate-fadeIn ${loading ? 'opacity-50' : ''}`}>
+
+          <div className="flex items-center gap-3">
+
+            <span className={'inline-flex items-center justify-center w-10 h-10 rounded-xl '+(item.tipo==='carro' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300' : 'bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-300')}>
+
+              <i data-lucide={item.tipo==='carro'?'car':'motorcycle'} className="w-5 h-5"></i>
+
+            </span>
+
+            <div className="flex-1 min-w-0">
+
+              <div className="font-semibold tracking-wide">{item.placa}</div>
+
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+
+                {new Date(item.entrada).toLocaleString('pt-BR')}
+
+                {item.formaPagamento && ` • ${item.formaPagamento === 'pix' ? 'Pix' : 'Dinheiro'}`}
 
               </div>
 
-              <div>
+            </div>
 
-                <label class="text-xs text-slate-500 dark:text-slate-400">Tipo</label>
 
-                <select id="tipo-select" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:ring-4 focus:ring-blue-500/20">
 
-                  <option value="carro">Carro</option>
+            {!editing ? (
 
-                  <option value="moto">Moto</option>
+              <div className="text-right">
 
-                </select>
+                <div className={"text-sm font-medium "+(item.pago?'text-emerald-600 dark:text-emerald-400':'text-amber-600 dark:text-amber-400')}>
 
-              </div>
+                  {item.pago ? 'Pago' : 'Pendente'}
 
-              <div class="md:col-span-2">
+                </div>
 
-                <label class="text-xs text-slate-500 dark:text-slate-400">Valor (R$)</label>
+                <div className="text-lg font-semibold">{formatBRL(item.valor)}</div>
 
-                <input type="number" id="valor-input" step="0.01" min="0" placeholder="0,00" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:ring-4 focus:ring-blue-500/20">
+                {item.pago && item.formaPagamento && (
 
-              </div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
 
-              <div class="md:col-span-2">
+                    {item.formaPagamento === 'pix' ? '💳 Pix' : '💵 Dinheiro'}
 
-                <label class="text-xs text-slate-500 dark:text-slate-400">Pagamento</label>
+                  </div>
 
-                <select id="pagamento-select" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:ring-4 focus:ring-blue-500/20">
-
-                  <option value="dinheiro">Dinheiro</option>
-
-                  <option value="pix">Pix</option>
-
-                </select>
+                )}
 
               </div>
 
-              <div class="flex items-center gap-2 md:col-span-2">
+            ) : (
 
-                <input type="checkbox" id="pago-checkbox" class="w-4 h-4 rounded border-slate-300 text-blue-600">
+              <div className="flex items-center gap-2">
 
-                <label for="pago-checkbox" class="text-sm">Pago</label>
+                <input 
 
-              </div>
+                  type="number" 
 
-              <div class="md:col-span-2 flex justify-end">
+                  step="0.01" 
 
-                <button type="submit" class="w-full md:w-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:brightness-110 active:scale-95 transition">
+                  min="0" 
 
-                  <i data-lucide="plus" class="w-4 h-4"></i>
+                  value={tempValor} 
 
-                  Adicionar
+                  onChange={e=>setTempValor(e.target.value)} 
+
+                  className="w-28 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900" />
+
+                <button 
+
+                  onClick={save} 
+
+                  disabled={loading}
+
+                  className="px-3 py-2 rounded-xl bg-emerald-600 text-white hover:brightness-110 disabled:opacity-50">
+
+                  {loading ? '...' : 'Salvar'}
 
                 </button>
 
               </div>
 
-            </form>
+            )}
 
 
 
-            <!-- Tabs e Busca -->
+            <div className="flex items-center gap-1 ml-2">
 
-            <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+              <button 
 
-              <div class="flex w-full overflow-x-auto gap-2 pb-1" id="tabs-container"></div>
+                onClick={()=>onTogglePago(item.id)} 
 
-              <div class="flex-1"></div>
+                disabled={loading}
 
-              <div class="relative">
+                title="Alternar pago" 
 
-                <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition disabled:opacity-50">
 
-                <input type="text" id="search-input" placeholder="Buscar placa..." class="w-full sm:w-64 pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:ring-4 focus:ring-blue-500/20">
+                <i data-lucide="badge-check" className="w-5 h-5"></i>
+
+              </button>
+
+              <button 
+
+                onClick={()=>setEditing(v=>!v)} 
+
+                disabled={loading}
+
+                title="Editar valor" 
+
+                className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition disabled:opacity-50">
+
+                <i data-lucide="pencil" className="w-5 h-5"></i>
+
+              </button>
+
+              <button 
+
+                onClick={()=>onDelete(item.id)} 
+
+                disabled={loading}
+
+                title="Remover" 
+
+                className="p-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 disabled:opacity-50">
+
+                <i data-lucide="trash-2" className="w-5 h-5"></i>
+
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )
+
+    }
+
+
+
+    function List({items, search, tab, loading, ...handlers}){
+
+      const filtered = items.filter(it =>
+
+        (tab==='todos' || it.tipo===tab) &&
+
+        it.placa.toLowerCase().includes(search.toLowerCase())
+
+      );
+
+
+
+      return (
+
+        <div className="grid gap-3">
+
+          {filtered.length === 0 && !loading && (
+
+            <div className="p-6 text-center rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 animate-fadeIn">
+
+              <div className="mx-auto w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 mb-2 flex items-center justify-center">
+
+                <i data-lucide="search-x" className="w-5 h-5"></i>
 
               </div>
 
-            </div>
-
-
-
-            <!-- Lista -->
-
-            <div id="veiculos-list" class="grid gap-3"></div>
-
-          </div>
-
-        </section>
-
-
-
-        <!-- Seção Relatórios -->
-
-        <section id="relatorios" class="scroll-mt-24 py-6">
-
-          <div class="flex items-end justify-between mb-3">
-
-            <div>
-
-              <h2 class="text-xl sm:text-2xl font-bold tracking-tight">Relatórios</h2>
-
-              <p class="text-sm text-slate-500 dark:text-slate-400">Totais por tipo, status e formas de pagamento</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Nada por aqui… tente outra placa, ou adicione um veículo.</p>
 
             </div>
 
-          </div>
-
-          <div id="relatorios-content"></div>
-
-        </section>
+          )}
 
 
 
-        <!-- Seção Config -->
+          {loading && filtered.length === 0 && (
 
-        <section id="config" class="scroll-mt-24 py-6">
+            <div className="p-6 text-center rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40">
 
-          <div class="flex items-end justify-between mb-3">
+              <div className="mx-auto w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 mb-2 flex items-center justify-center">
 
-            <div>
+                <i data-lucide="loader" className="w-5 h-5 animate-spin"></i>
 
-              <h2 class="text-xl sm:text-2xl font-bold tracking-tight">Configurações</h2>
+              </div>
 
-              <p class="text-sm text-slate-500 dark:text-slate-400">Tema, backup e mais</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Carregando veículos...</p>
 
             </div>
 
-          </div>
-
-          <div id="config-content"></div>
-
-        </section>
-
-      `;
+          )}
 
 
 
-      // Configurar eventos dos formulários
+          {filtered.map(item => (
 
-      document.getElementById('add-form').addEventListener('submit', adicionarVeiculo);
+            <Row key={item.id} item={item} loading={loading} {...handlers} />
 
-      document.getElementById('search-input').addEventListener('input', function(e) {
+          ))}
 
-        currentSearch = e.target.value;
+        </div>
 
-        renderizarVeiculos();
-
-      });
-
-
-
-      // Renderizar conteúdo
-
-      atualizarStatus();
-
-      renderizarResumo();
-
-      renderizarTabs();
-
-      renderizarVeiculos();
-
-      renderizarRelatorios();
-
-      renderizarConfig();
-
-
-
-      // Criar ícones
-
-      window.lucide.createIcons();
+      )
 
     }
 
 
 
-    // FUNÇÕES PRINCIPAIS
+    function Section({id, title, subtitle, children, action}){
 
-    async function adicionarVeiculo(e) {
+      return (
 
-      e.preventDefault();
+        <section id={id} className="scroll-mt-24 py-6">
 
+          <div className="flex items-end justify-between mb-3">
 
+            <div>
 
-      const placa = document.getElementById('placa-input').value.trim().toUpperCase();
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight">{title}</h2>
 
-      const tipo = document.getElementById('tipo-select').value;
+              {subtitle && <p className="text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>}
 
-      const valor = parseFloat(document.getElementById('valor-input').value) || 0;
+            </div>
 
-      const formaPagamento = document.getElementById('pagamento-select').value;
+            {action}
 
-      const pago = document.getElementById('pago-checkbox').checked;
+          </div>
 
+          {children}
 
+        </section>
 
-      if (!placa) {
+      )
 
-        alert('Por favor, informe a placa do veículo');
-
-        return;
-
-      }
-
-
-
-      // Verificar se placa já existe
-
-      if (veiculos.some(v => v.placa === placa)) {
-
-        alert('Esta placa já está cadastrada!');
-
-        return;
-
-      }
+    }
 
 
 
-      const novoVeiculo = {
+    function useTheme(){
 
-        id: Date.now().toString(),
+      const [theme, setTheme] = useState('light');
 
-        placa,
+      useEffect(()=>{
 
-        tipo,
+        const root = document.documentElement;
 
-        valor,
-
-        formaPagamento,
-
-        pago,
-
-        entrada: new Date().toISOString(),
-
-        sincronizado: false
-
-      };
-
-
-
-      // Salvar localmente
-
-      veiculos.unshift(novoVeiculo);
-
-      salvarDados();
-
-
-
-      // Tentar enviar para API
-
-      if (isOnline) {
+@@ -441,4 +441,350 @@
 
         try {
 
-          const response = await fetch(API_BASE_URL, {
+          const data = await apiService.getAll();
 
-            method: 'POST',
-
-            headers: { 'Content-Type': 'application/json' },
-
-            body: JSON.stringify(novoVeiculo)
-
-          });
+          setItems(data);
 
 
+          
 
-          if (response.ok) {
 
-            novoVeiculo.sincronizado = true;
+          setApiStatus('online');
 
-            salvarDados();
-
-          }
 
         } catch (error) {
 
-          console.log('API offline, salvando localmente');
+
+          console.error('Erro ao carregar dados:', error);
+
+
+          setApiStatus('offline');
+
+
+          // Fallback para dados locais
+
+
+          const localData = localStorage.getItem('estacionaplus_backup');
+
+
+          if (localData) {
+
+
+            setItems(JSON.parse(localData));
+
+
+          }
+
+
+        } finally {
+
+
+          setLoading(false);
+
 
         }
+
 
       }
 
 
 
-      // Atualizar interface
-
-      renderizarResumo();
-
-      renderizarVeiculos();
-
-      renderizarRelatorios();
 
 
-
-      // Limpar formulário
-
-      document.getElementById('add-form').reset();
-
-    }
+      async function addItem(novo) {
 
 
+        setLoading(true);
 
 
-    // [CONTINUA... AS OUTRAS FUNÇÕES SERIAM IMPLEMENTADAS AQUI]
+        try {
+
+
+          const savedItem = await apiService.create(novo);
+
+
+          setItems(prev => [savedItem, ...prev]);
+
+
+          localStorage.setItem('estacionaplus_backup', JSON.stringify([savedItem, ...items]));
+
+
+        } catch (error) {
+
+
+          alert(error.message || 'Erro ao adicionar veículo');
+
+
+          throw error;
+
+
+        } finally {
+
+
+          setLoading(false);
+
+
+        }
+
+
+      }
 
 
 
 
-    // FUNÇÕES DE RENDERIZAÇÃO
 
-    function renderizarResumo() {
-
-      const carros = veiculos.filter(v => v.tipo === 'carro');
-
-@@ -517,6 +515,126 @@
-
-      window.lucide.createIcons();
-
-    }
+      async function togglePago(id) {
 
 
+        setLoading(true);
 
 
-    // RELATÓRIOS COMPLETOS
+        try {
 
 
-    function renderizarRelatorios() {
+          const updated = await apiService.togglePago(id);
 
 
-      const carros = veiculos.filter(v => v.tipo === 'carro');
+          setItems(prev => prev.map(i => i.id === id ? updated : i));
 
 
-      const motos = veiculos.filter(v => v.tipo === 'moto');
+          localStorage.setItem('estacionaplus_backup', JSON.stringify(items.map(i => i.id === id ? updated : i)));
 
 
-      
+        } catch (error) {
 
 
-      const totalCarrosPago = carros.filter(v => v.pago).reduce((s, v) => s + v.valor, 0);
+          alert('Erro ao atualizar pagamento');
 
 
-      const totalMotosPago = motos.filter(v => v.pago).reduce((s, v) => s + v.valor, 0);
+        } finally {
 
 
-      const pendCarros = carros.filter(v => !v.pago).reduce((s, v) => s + v.valor, 0);
+          setLoading(false);
 
 
-      const pendMotos = motos.filter(v => !v.pago).reduce((s, v) => s + v.valor, 0);
+        }
 
 
-      
+      }
+
+
+
+
+
+      async function updateValor(id, valor) {
+
+
+        setLoading(true);
+
+
+        try {
+
+
+          const updated = await apiService.updateValor(id, valor);
+
+
+          setItems(prev => prev.map(i => i.id === id ? updated : i));
+
+
+          localStorage.setItem('estacionaplus_backup', JSON.stringify(items.map(i => i.id === id ? updated : i)));
+
+
+        } catch (error) {
+
+
+          alert('Erro ao atualizar valor');
+
+
+        } finally {
+
+
+          setLoading(false);
+
+
+        }
+
+
+      }
+
+
+
+
+
+      async function removeItem(id) {
+
+
+        if (!confirm('Tem certeza que deseja remover este veículo?')) return;
+
+
+        
+
+
+        setLoading(true);
+
+
+        try {
+
+
+          await apiService.delete(id);
+
+
+          setItems(prev => prev.filter(i => i.id !== id));
+
+
+          localStorage.setItem('estacionaplus_backup', JSON.stringify(items.filter(i => i.id !== id)));
+
+
+        } catch (error) {
+
+
+          alert('Erro ao remover veículo');
+
+
+        } finally {
+
+
+          setLoading(false);
+
+
+        }
+
+
+      }
+
+
+
+
+
+      function clearAll() { 
+
+
+        if (!confirm('Tem certeza que deseja limpar TODOS os dados?')) return;
+
+
+        setItems([]);
+
+
+        localStorage.removeItem('estacionaplus_backup');
+
+
+      }
+
+
+
+
+
+      const carros = useMemo(()=> items.filter(i=>i.tipo==='carro'), [items]);
+
+
+      const motos = useMemo(()=> items.filter(i=>i.tipo==='moto'), [items]);
+
+
+
+
+
+      const totalCarrosPago = useMemo(()=> carros.filter(i=>i.pago).reduce((s,i)=>s+i.valor,0), [carros]);
+
+
+      const totalMotosPago  = useMemo(()=> motos.filter(i=>i.pago).reduce((s,i)=>s+i.valor,0), [motos]);
+
+
+      const pendCarros = useMemo(()=> carros.filter(i=>!i.pago).reduce((s,i)=>s+i.valor,0), [carros]);
+
+
+      const pendMotos  = useMemo(()=> motos.filter(i=>!i.pago).reduce((s,i)=>s+i.valor,0), [motos]);
+
+
+
 
 
       const totalGeral = totalCarrosPago + totalMotosPago + pendCarros + pendMotos;
@@ -790,298 +1106,103 @@
       const totalPendentes = pendCarros + pendMotos;
 
 
-      
 
 
-      const totalPix = veiculos.filter(v => v.pago && v.formaPagamento === 'pix').reduce((s, v) => s + v.valor, 0);
 
+      const totalPix = useMemo(()=> 
 
-      const totalDinheiro = veiculos.filter(v => v.pago && v.formaPagamento === 'dinheiro').reduce((s, v) => s + v.valor, 0);
 
+        items.filter(i=>i.pago && i.formaPagamento === 'pix').reduce((s,i)=>s+i.valor,0), 
 
-      const quantidadePix = veiculos.filter(v => v.pago && v.formaPagamento === 'pix').length;
 
+        [items]
 
-      const quantidadeDinheiro = veiculos.filter(v => v.pago && v.formaPagamento === 'dinheiro').length;
 
-
-
-
-
-      const relatoriosHTML = `
-
-
-        <div class="grid md:grid-cols-2 gap-4">
-
-
-          <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
-
-
-            <h3 class="font-semibold mb-2 flex items-center gap-2"><i data-lucide="car" class="w-5 h-5"></i>Carros</h3>
-
-
-            <ul class="text-sm grid gap-1">
-
-
-              <li class="flex justify-between"><span>Arrecadado (pagos)</span><span class="font-semibold">R$ ${totalCarrosPago.toFixed(2)}</span></li>
-
-
-              <li class="flex justify-between"><span>Pendente</span><span class="font-semibold">R$ ${pendCarros.toFixed(2)}</span></li>
-
-
-              <li class="flex justify-between"><span>Subtotal</span><span class="font-semibold">R$ ${(totalCarrosPago + pendCarros).toFixed(2)}</span></li>
-
-
-              <li class="flex justify-between"><span>Itens</span><span class="font-semibold">${carros.length}</span></li>
-
-
-            </ul>
-
-
-          </div>
-
-
-          <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
-
-
-            <h3 class="font-semibold mb-2 flex items-center gap-2"><i data-lucide="motorcycle" class="w-5 h-5"></i>Motos</h3>
-
-
-            <ul class="text-sm grid gap-1">
-
-
-              <li class="flex justify-between"><span>Arrecadado (pagos)</span><span class="font-semibold">R$ ${totalMotosPago.toFixed(2)}</span></li>
-
-
-              <li class="flex justify-between"><span>Pendente</span><span class="font-semibold">R$ ${pendMotos.toFixed(2)}</span></li>
-
-
-              <li class="flex justify-between"><span>Subtotal</span><span class="font-semibold">R$ ${(totalMotosPago + pendMotos).toFixed(2)}</span></li>
-
-
-              <li class="flex justify-between"><span>Itens</span><span class="font-semibold">${motos.length}</span></li>
-
-
-            </ul>
-
-
-          </div>
-
-
-        </div>
-
-
-        
-
-
-        <!-- Total Geral -->
-
-
-        <div class="mt-4 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
-
-
-          <h3 class="font-semibold mb-3 flex items-center gap-2 text-lg">
-
-
-            <i data-lucide="dollar-sign" class="w-5 h-5 text-emerald-600"></i>
-
-
-            Total Geral
-
-
-          </h3>
-
-
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-
-            <div class="text-center p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
-
-
-              <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">R$ ${totalGeral.toFixed(2)}</div>
-
-
-              <div class="text-sm text-slate-600 dark:text-slate-300 mt-1">Valor Total</div>
-
-
-            </div>
-
-
-            <div class="text-center p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-
-
-              <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">R$ ${totalPagos.toFixed(2)}</div>
-
-
-              <div class="text-sm text-slate-600 dark:text-slate-300 mt-1">Total Pago</div>
-
-
-            </div>
-
-
-            <div class="text-center p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-
-
-              <div class="text-2xl font-bold text-amber-600 dark:text-amber-400">R$ ${totalPendentes.toFixed(2)}</div>
-
-
-              <div class="text-sm text-slate-600 dark:text-slate-300 mt-1">Total Pendente</div>
-
-
-            </div>
-
-
-          </div>
-
-
-        </div>
-
-
-
-
-
-        <!-- Formas de Pagamento -->
-
-
-        <div class="mt-4 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
-
-
-          <h3 class="font-semibold mb-3 flex items-center gap-2 text-lg">
-
-
-            <i data-lucide="credit-card" class="w-5 h-5 text-purple-600"></i>
-
-
-            Formas de Pagamento
-
-
-          </h3>
-
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-
-            <div class="text-center p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-
-
-              <div class="text-2xl font-bold text-green-600 dark:text-green-400">R$ ${totalPix.toFixed(2)}</div>
-
-
-              <div class="text-sm text-slate-600 dark:text-slate-300 mt-1">Total Pix</div>
-
-
-              <div class="text-xs text-slate-500 dark:text-slate-400 mt-1">${quantidadePix} pagamento(s)</div>
-
-
-            </div>
-
-
-            <div class="text-center p-4 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
-
-
-              <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">R$ ${totalDinheiro.toFixed(2)}</div>
-
-
-              <div class="text-sm text-slate-600 dark:text-slate-300 mt-1">Total Dinheiro</div>
-
-
-              <div class="text-xs text-slate-500 dark:text-slate-400 mt-1">${quantidadeDinheiro} pagamento(s)</div>
-
-
-            </div>
-
-
-          </div>
-
-
-          <div class="mt-3 text-center">
-
-
-            <div class="text-sm text-slate-500 dark:text-slate-400">
-
-
-              Total de pagamentos: <span class="font-semibold">${quantidadePix + quantidadeDinheiro}</span> • 
-
-
-              Pix: <span class="font-semibold text-green-600">${quantidadePix}</span> • 
-
-
-              Dinheiro: <span class="font-semibold text-yellow-600">${quantidadeDinheiro}</span>
-
-
-            </div>
-
-
-          </div>
-
-
-        </div>
-
-
-      `;
+      );
 
 
       
 
 
-      document.getElementById('relatorios-content').innerHTML = relatoriosHTML;
+      const totalDinheiro = useMemo(()=> 
 
 
-      window.lucide.createIcons();
+        items.filter(i=>i.pago && i.formaPagamento === 'dinheiro').reduce((s,i)=>s+i.valor,0), 
 
 
-    }
+        [items]
+
+
+      );
 
 
 
 
 
-    function renderizarConfig() {
+      const quantidadePix = useMemo(()=> 
 
 
-      const configHTML = `
+        items.filter(i=>i.pago && i.formaPagamento === 'pix').length, 
 
 
-        <div class="grid gap-4">
+        [items]
 
 
-          <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
+      );
 
 
-            <div class="flex items-center justify-between">
+      
 
 
-              <div>
+      const quantidadeDinheiro = useMemo(()=> 
 
 
-                <div class="font-semibold">Dados</div>
+        items.filter(i=>i.pago && i.formaPagamento === 'dinheiro').length, 
 
 
-                <div class="text-sm text-slate-500 dark:text-slate-400">Backup e limpeza</div>
+        [items]
 
 
-              </div>
+      );
 
 
-              <div class="flex items-center gap-2">
 
 
-                <button onclick="exportarDados()" class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white hover:brightness-110">Exportar</button>
+
+      useEffect(()=>{
 
 
-                <label class="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer">
+        setTimeout(()=>window?.lucide?.createIcons?.(), 0);
 
 
-                  Importar
+      }, [items, tab, search, theme, loading]);
 
 
-                  <input type="file" accept="application/json" class="hidden" onchange="importarDados(event)">
 
 
-                </label>
+
+      return (
 
 
-                <button onclick="limparTudo()" class="px-3 py-1.5 rounded-xl bg-red-600 text-white hover:brightness-110">Limpar tudo</button>
+        <div className="grid gap-8">
+
+
+          {/* Status da API */}
+
+
+          {apiStatus === 'offline' && (
+
+
+            <div className="p-3 rounded-xl bg-amber-100 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-sm">
+
+
+              <div className="flex items-center gap-2">
+
+
+                <i data-lucide="wifi-off" className="w-4 h-4"></i>
+
+
+                <span>Modo offline - usando backup local</span>
 
 
               </div>
@@ -1090,19 +1211,631 @@
             </div>
 
 
-          </div>
+          )}
+
+
+
+
+
+          {/* Início */}
+
+
+          <Section id="inicio" title="Resumo" subtitle="Visão geral rápida do caixa e movimentação">
+
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+
+              <StatCard icon="car" label="Carros pagos" value={formatBRL(totalCarrosPago)} sub={`${carros.filter(i=>i.pago).length} de ${carros.length}`} />
+
+
+              <StatCard icon="motorcycle" label="Motos pagas" value={formatBRL(totalMotosPago)} sub={`${motos.filter(i=>i.pago).length} de ${motos.length}`} />
+
+
+              <StatCard icon="alarm-clock" label="Pend. Carros" value={formatBRL(pendCarros)} sub={`${carros.filter(i=>!i.pago).length} itens`} />
+
+
+              <StatCard icon="alarm-clock" label="Pend. Motos" value={formatBRL(pendMotos)} sub={`${motos.filter(i=>!i.pago).length} itens`} />
+
+
+            </div>
+
+
+          </Section>
+
+
+
+
+
+          {/* Placas */}
+
+
+          <Section id="placas" title="Placas" subtitle="Gerencie entradas, pagamentos e valores" action={
+
+
+            <a href="#relatorios" className="hidden md:inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800">
+
+
+              <i data-lucide="pie-chart" className="w-4 h-4"></i>
+
+
+              Ir para Relatórios
+
+
+            </a>
+
+
+          }>
+
+
+            <div className="grid gap-4">
+
+
+              <AddForm onAdd={addItem} loading={loading} />
+
+
+
+
+
+              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+
+
+                <Tabs tab={tab} setTab={setTab} />
+
+
+                <div className="flex-1"></div>
+
+
+                <div className="relative">
+
+
+                  <i data-lucide="search" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+
+
+                  <input 
+
+
+                    value={search} 
+
+
+                    onChange={e=>setSearch(e.target.value)} 
+
+
+                    placeholder="Buscar placa..."
+
+
+                    className="w-full sm:w-64 pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:ring-4 focus:ring-blue-500/20"/>
+
+
+                </div>
+
+
+              </div>
+
+
+
+
+
+              <List 
+
+
+                items={items} 
+
+
+                search={search} 
+
+
+                tab={tab}
+
+
+                loading={loading}
+
+
+                onTogglePago={togglePago} 
+
+
+                onUpdateValor={updateValor} 
+
+
+                onDelete={removeItem}
+
+
+              />
+
+
+            </div>
+
+
+          </Section>
+
+
+
+
+
+          {/* Relatórios */}
+
+
+          <Section id="relatorios" title="Relatórios" subtitle="Totais por tipo, status e formas de pagamento">
+
+
+            <div className="grid md:grid-cols-2 gap-4">
+
+
+              <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
+
+
+                <h3 className="font-semibold mb-2 flex items-center gap-2"><i data-lucide="car" className="w-5 h-5"></i>Carros</h3>
+
+
+                <ul className="text-sm grid gap-1">
+
+
+                  <li className="flex justify-between"><span>Arrecadado (pagos)</span><span className="font-semibold">{formatBRL(totalCarrosPago)}</span></li>
+
+
+                  <li className="flex justify-between"><span>Pendente</span><span className="font-semibold">{formatBRL(pendCarros)}</span></li>
+
+
+                  <li className="flex justify-between"><span>Subtotal</span><span className="font-semibold">{formatBRL(totalCarrosPago + pendCarros)}</span></li>
+
+
+                  <li className="flex justify-between"><span>Itens</span><span className="font-semibold">{carros.length}</span></li>
+
+
+                </ul>
+
+
+              </div>
+
+
+              <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
+
+
+                <h3 className="font-semibold mb-2 flex items-center gap-2"><i data-lucide="motorcycle" className="w-5 h-5"></i>Motos</h3>
+
+
+                <ul className="text-sm grid gap-1">
+
+
+                  <li className="flex justify-between"><span>Arrecadado (pagos)</span><span className="font-semibold">{formatBRL(totalMotosPago)}</span></li>
+
+
+                  <li className="flex justify-between"><span>Pendente</span><span className="font-semibold">{formatBRL(pendMotos)}</span></li>
+
+
+                  <li className="flex justify-between"><span>Subtotal</span><span className="font-semibold">{formatBRL(totalMotosPago + pendMotos)}</span></li>
+
+
+                  <li className="flex justify-between"><span>Itens</span><span className="font-semibold">{motos.length}</span></li>
+
+
+                </ul>
+
+
+              </div>
+
+
+            </div>
+
+
+            
+
+
+            {/* Total Geral */}
+
+
+            <div className="mt-4 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
+
+
+              <h3 className="font-semibold mb-3 flex items-center gap-2 text-lg">
+
+
+                <i data-lucide="dollar-sign" className="w-5 h-5 text-emerald-600"></i>
+
+
+                Total Geral
+
+
+              </h3>
+
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+
+                <div className="text-center p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+
+
+                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+
+
+                    {formatBRL(totalGeral)}
+
+
+                  </div>
+
+
+                  <div className="text-sm text-slate-600 dark:text-slate-300 mt-1">Valor Total</div>
+
+
+                </div>
+
+
+                <div className="text-center p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+
+
+                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+
+
+                    {formatBRL(totalPagos)}
+
+
+                  </div>
+
+
+                  <div className="text-sm text-slate-600 dark:text-slate-300 mt-1">Total Pago</div>
+
+
+                </div>
+
+
+                <div className="text-center p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+
+
+                  <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+
+
+                    {formatBRL(totalPendentes)}
+
+
+                  </div>
+
+
+                  <div className="text-sm text-slate-600 dark:text-slate-300 mt-1">Total Pendente</div>
+
+
+                </div>
+
+
+              </div>
+
+
+            </div>
+
+
+
+
+
+            {/* Divisão por Forma de Pagamento */}
+
+
+            <div className="mt-4 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
+
+
+              <h3 className="font-semibold mb-3 flex items-center gap-2 text-lg">
+
+
+                <i data-lucide="credit-card" className="w-5 h-5 text-purple-600"></i>
+
+
+                Formas de Pagamento
+
+
+              </h3>
+
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+
+                <div className="text-center p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+
+
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+
+
+                    {formatBRL(totalPix)}
+
+
+                  </div>
+
+
+                  <div className="text-sm text-slate-600 dark:text-slate-300 mt-1">Total Pix</div>
+
+
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+
+
+                    {quantidadePix} pagamento(s)
+
+
+                  </div>
+
+
+                </div>
+
+
+                <div className="text-center p-4 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
+
+
+                  <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+
+
+                    {formatBRL(totalDinheiro)}
+
+
+                  </div>
+
+
+                  <div className="text-sm text-slate-600 dark:text-slate-300 mt-1">Total Dinheiro</div>
+
+
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+
+
+                    {quantidadeDinheiro} pagamento(s)
+
+
+                  </div>
+
+
+                </div>
+
+
+              </div>
+
+
+              <div className="mt-3 text-center">
+
+
+                <div className="text-sm text-slate-500 dark:text-slate-400">
+
+
+                  Total de pagamentos: <span className="font-semibold">{quantidadePix + quantidadeDinheiro}</span> • 
+
+
+                  Pix: <span className="font-semibold text-green-600">{quantidadePix}</span> • 
+
+
+                  Dinheiro: <span className="font-semibold text-yellow-600">{quantidadeDinheiro}</span>
+
+
+                </div>
+
+
+              </div>
+
+
+            </div>
+
+
+          </Section>
+
+
+
+
+
+          {/* Configurações */}
+
+
+          <Section id="config" title="Configurações" subtitle="Tema, backup e mais">
+
+
+            <div className="grid gap-4">
+
+
+              <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
+
+
+                <div className="flex items-center justify-between">
+
+
+                  <div>
+
+
+                    <div className="font-semibold">Tema</div>
+
+
+                    <div className="text-sm text-slate-500 dark:text-slate-400">Claro ou escuro</div>
+
+
+                  </div>
+
+
+                  <div className="flex items-center gap-2">
+
+
+                    <button onClick={()=>setTheme('light')} className={'px-3 py-1.5 rounded-xl border '+(theme==='light'?'bg-blue-600 text-white border-blue-600 shadow-glow':'border-slate-200 dark:border-slate-800')}>Claro</button>
+
+
+                    <button onClick={()=>setTheme('dark')} className={'px-3 py-1.5 rounded-xl border '+(theme==='dark'?'bg-blue-600 text-white border-blue-600 shadow-glow':'border-slate-200 dark:border-slate-800')}>Escuro</button>
+
+
+                    <button onClick={()=>setTheme(theme==='dark'?'light':'dark')} className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800">Alternar</button>
+
+
+                  </div>
+
+
+                </div>
+
+
+              </div>
+
+
+
+
+
+              <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
+
+
+                <div className="flex items-center justify-between">
+
+
+                  <div>
+
+
+                    <div className="font-semibold">Dados</div>
+
+
+                    <div className="text-sm text-slate-500 dark:text-slate-400">Backup e limpeza</div>
+
+
+                  </div>
+
+
+                  <div className="flex items-center gap-2">
+
+
+                    <button onClick={()=>{
+
+
+                        const blob = new Blob([JSON.stringify(items, null, 2)], {type:'application/json'});
+
+
+                        const url = URL.createObjectURL(blob);
+
+
+                        const a = Object.assign(document.createElement('a'), { href:url, download:'backup_estaciona_plus.json' });
+
+
+                        a.click(); URL.revokeObjectURL(url);
+
+
+                      }}
+
+
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white hover:brightness-110">Exportar</button>
+
+
+                    <label className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer">
+
+
+                      Importar
+
+
+                      <input type="file" accept="application/json" className="hidden" onChange={e=>{
+
+
+                        const file = e.target.files?.[0];
+
+
+                        if(!file) return;
+
+
+                        const reader = new FileReader();
+
+
+                        reader.onload = () => {
+
+
+                          try{ const data = JSON.parse(reader.result); if(Array.isArray(data)) setItems(data); else alert('Arquivo inválido'); }
+
+
+                          catch{ alert('Falha ao importar'); }
+
+
+                        };
+
+
+                        reader.readAsText(file);
+
+
+                      }}/>
+
+
+                    </label>
+
+
+                    <button onClick={clearAll} className="px-3 py-1.5 rounded-xl bg-red-600 text-white hover:brightness-110">Limpar tudo</button>
+
+
+                  </div>
+
+
+                </div>
+
+
+              </div>
+
+
+
+
+
+              {/* Configuração da API */}
+
+
+              <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
+
+
+                <div className="flex items-center justify-between">
+
+
+                  <div>
+
+
+                    <div className="font-semibold">API</div>
+
+
+                    <div className="text-sm text-slate-500 dark:text-slate-400">Conexão com o backend</div>
+
+
+                    <div className="text-xs mt-1">
+
+
+                      Status: 
+
+
+                      <span className={`ml-1 font-semibold ${
+
+
+                        apiStatus === 'online' ? 'text-green-600' : 
+
+
+                        apiStatus === 'offline' ? 'text-amber-600' : 'text-slate-500'
+
+
+                      }`}>
+
+
+                        {apiStatus === 'online' ? '✅ Conectado' : 
+
+
+                         apiStatus === 'offline' ? '🔄 Modo offline' : '⏳ Verificando...'}
+
+
+                      </span>
+
+
+                    </div>
+
+
+                  </div>
+
+
+                  <button onClick={loadData} className="px-3 py-1.5 rounded-xl bg-blue-600 text-white hover:brightness-110">
+
+
+                    Recarregar
+
+
+                  </button>
+
+
+                </div>
+
+
+              </div>
+
+
+            </div>
+
+
+          </Section>
 
 
         </div>
 
 
-      `;
-
-
-      
-
-
-      document.getElementById('config-content').innerHTML = configHTML;
+      )
 
 
     }
@@ -1110,258 +1843,47 @@
 
 
 
-    // FUNÇÕES AUXILIARES
 
-    async function alternarPago(id) {
+    const root = ReactDOM.createRoot(document.getElementById('root'));
 
-      const veiculo = veiculos.find(v => v.id === id);
 
-@@ -561,6 +679,7 @@
+    root.render(<App />);
 
-      }
 
-    }
 
 
 
+    // Toggle via botão do header
 
-    // SINCRONIZAÇÃO COMPLETA
 
-    async function sincronizarPendentes() {
+    const themeBtn = document.getElementById('themeToggle');
 
-      if (!isOnline) {
 
-        alert('Conecte-se à internet para sincronizar');
+    themeBtn?.addEventListener('click', () => {
 
-@@ -581,35 +700,70 @@
 
-          if (response.ok) {
+      document.documentElement.classList.toggle('dark');
 
-            veiculo.sincronizado = true;
 
-            sucessos++;
+      window?.lucide?.createIcons?.();
 
 
-            salvarDados();
+    });
 
-          }
 
-        } catch (error) {
 
-          console.log('Erro ao sincronizar:', veiculo.placa);
 
-        }
 
-      }
+    // Render ícones Lucide
 
 
+    window?.lucide?.createIcons?.();
 
-
-      salvarDados();
-
-      renderizarVeiculos();
-
-
-
-      if (sucessos > 0) {
-
-        alert(`${sucessos} veículos sincronizados com sucesso!`);
-
-
-      } else if (pendentes.length > 0) {
-
-
-        alert('Erro ao sincronizar veículos. Tente novamente.');
-
-
-      } else {
-
-
-        alert('Todos os dados já estão sincronizados!');
-
-      }
-
-    }
-
-
-
-
-    // [FUNÇÕES renderizarRelatorios() e renderizarConfig() SERIAM IMPLEMENTADAS AQUI]
-
-
-    function renderizarRelatorios() {
-
-
-      document.getElementById('relatorios-content').innerHTML = `
-
-
-        <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
-
-
-          <p class="text-sm text-slate-500 dark:text-slate-400">Relatórios serão implementados em breve...</p>
-
-
-        </div>
-
-
-      `;
-
-
-    // FUNÇÕES DE BACKUP
-
-
-    function exportarDados() {
-
-
-      const dataStr = JSON.stringify(veiculos, null, 2);
-
-
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
-
-
-      const url = URL.createObjectURL(dataBlob);
-
-
-      const link = document.createElement('a');
-
-
-      link.href = url;
-
-
-      link.download = 'backup_estaciona_plus.json';
-
-
-      link.click();
-
-
-      URL.revokeObjectURL(url);
-
-    }
-
-
-
-
-    function renderizarConfig() {
-
-
-      document.getElementById('config-content').innerHTML = `
-
-
-        <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
-
-
-          <p class="text-sm text-slate-500 dark:text-slate-400">Configurações serão implementadas em breve...</p>
-
-
-        </div>
-
-
-      `;
-
-
-    function importarDados(event) {
-
-
-      const file = event.target.files[0];
-
-
-      if (!file) return;
-
-
-
-
-
-      const reader = new FileReader();
-
-
-      reader.onload = function(e) {
-
-
-        try {
-
-
-          const dados = JSON.parse(e.target.result);
-
-
-          if (Array.isArray(dados)) {
-
-
-            veiculos = dados;
-
-
-            salvarDados();
-
-
-            renderizarResumo();
-
-
-            renderizarVeiculos();
-
-
-            renderizarRelatorios();
-
-
-            alert('Dados importados com sucesso!');
-
-
-          } else {
-
-
-            alert('Arquivo inválido');
-
-
-          }
-
-
-        } catch (error) {
-
-
-          alert('Erro ao importar arquivo');
-
-
-        }
-
-
-      };
-
-
-      reader.readAsText(file);
-
-
-    }
-
-
-
-
-
-    function limparTudo() {
-
-
-      if (confirm('Tem certeza que deseja limpar TODOS os dados? Esta ação não pode ser desfeita.')) {
-
-
-        veiculos = [];
-
-
-        salvarDados();
-
-
-        renderizarResumo();
-
-
-        renderizarVeiculos();
-
-
-        renderizarRelatorios();
-
-
-        alert('Todos os dados foram removidos!');
-
-
-      }
-
-    }
 
   </script>
 
+
 </body>
+
+
+</html>
