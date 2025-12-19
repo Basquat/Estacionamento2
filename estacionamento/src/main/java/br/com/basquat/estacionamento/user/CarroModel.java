@@ -1,10 +1,17 @@
 package br.com.basquat.estacionamento.user;
 
 import lombok.Data;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import jakarta.persistence.Id;
 
 @Data
 @Entity
+@Table()
 public class CarroModel {
+
+    @Id
+    private int CarroID;
     private boolean pago;
     private boolean Automovel;
     private boolean MetodoPagamento;
