@@ -3,6 +3,7 @@ package br.com.basquat.estacionamento.user;
 
 // Regras de dados, de acordo com as necessidades dos automoveis
 public class CarroModel {
+
     private String placa;
     private int valor;
     private boolean MetodoPagamento;
@@ -43,7 +44,7 @@ public class CarroModel {
     //SETTERS
 
     public void SetPlaca(String placa){
-        if(placa != null && !placa.isEmpty()) { //Método if que funciona apenas em String para garantir que não envie para o banco de dados um valor nulo ou vazio
+        if(placa != null && !placa.isEmpty()) { //Método if para garantir que o usuario não envie para o banco de dados um valor nulo ou vazio
             this.placa = placa;
         }
     }
@@ -63,6 +64,8 @@ public class CarroModel {
     public void SetAutomovel(boolean Automovel){
         this.Automovel = Automovel;
     }
+
+   
 }
 
 
