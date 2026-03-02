@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @RestController
 @RequestMapping("/Automoveis")
+@CrossOrigin(origins = "*")
 public class AutoController {
 
 
