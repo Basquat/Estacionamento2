@@ -10,5 +10,5 @@ public interface AutoRepository extends CrudRepository<AutoModel, Integer> {
     List<AutoModel> findByPlaca(String placa);
 
 
-
+    String placa(String placa);
 }

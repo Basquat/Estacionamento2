@@ -9,7 +9,7 @@ import lombok.Data;
 
 @Data
 @Entity
-@Table(name = "AutoModel")
+@Table(name = "auto_model")
 public class AutoModel {
 
     @Id
@@ -18,7 +18,7 @@ public class AutoModel {
     private int automoveisid;
 
 
-    private boolean pago;
+    private Boolean pago;
 
    public enum automovel {Carro, Moto;}
     public enum metodopagamento {Pix, Dinheiro}
