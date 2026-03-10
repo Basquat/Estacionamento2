@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="pt-br" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Estaciona+ • Controle de Placas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
+          boxShadow: { 'glow': '0 0 0 4px rgb(59 130 246 / 20%)' },
+          keyframes: {
+            fadeIn: { '0%': { opacity: 0, transform:'translateY(8px)' }, '100%': { opacity: 1, transform:'translateY(0)'} },
+            pop: { '0%': { transform:'scale(0.95)', opacity:0 }, '100%': { transform:'scale(1)', opacity:1 }},
+            blink: { '0%,100%':{opacity:.4}, '50%':{opacity:1} }
+          },
+          animation: {
+            fadeIn: 'fadeIn .35s ease-out',
+            pop: 'pop .2s ease-out',
+            blink: 'blink 1.2s ease-in-out infinite'
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <meta name="color-scheme" content="light dark" />
+  <style>
+    ::-webkit-scrollbar{ width:10px; height:10px }
+    ::-webkit-scrollbar-thumb{ background:rgba(100,100,100,.25); border-radius:999px }
+    ::-webkit-scrollbar-track{ background:transparent }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 selection:bg-blue-200 dark:selection:bg-blue-800/60">
+  <header class="sticky top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-white/70 dark:supports-[backdrop-filter]:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
+      <div class="flex items-center gap-2 font-extrabold tracking-tight text-xl">
+        <span class="inline-flex size-8 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-glow animate-pop">
+          <i data-lucide="parking-square" class="w-5 h-5"></i>
+        </span>
+        <a href="#inicio" class="hover:opacity-80 transition">Estaciona+</a>
+      </div>
+      <nav class="ml-auto hidden sm:flex items-center gap-2 text-sm">
+        <a href="#inicio" class="px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition">Início</a>
+        <a href="#placas" class="px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition">Placas</a>
+        <a href="#relatorios" class="px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition">Relatórios</a>
+        <a href="#config" class="px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition">Config</a>
+      </nav>
+      <button id="themeToggle" class="ml-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-sm">
+        <i data-lucide="sun" class="w-4 h-4 block dark:hidden"></i>
+        <i data-lucide="moon" class="w-4 h-4 hidden dark:block"></i>
+        <span class="hidden sm:inline">Tema</span>
+      </button>
+    </div>
+  </header>
+
+  <main id="root" class="max-w-6xl mx-auto px-4 sm:px-6 py-6"></main>
+
+  <footer class="sticky bottom-0 z-40 md:hidden backdrop-blur supports-[backdrop-filter]:bg-white/70 dark:supports-[backdrop-filter]:bg-slate-900/60 border-t border-slate-200/60 dark:border-slate-800">
+    <div class="max-w-6xl mx-auto px-4 py-2 flex items-center justify-around text-xs">
+      <a href="#inicio" class="flex flex-col items-center gap-1 p-2 rounded-xl active:scale-95 transition"><i data-lucide="home" class="w-5 h-5"></i>Início</a>
+      <a href="#placas" class="flex flex-col items-center gap-1 p-2 rounded-xl active:scale-95 transition"><i data-lucide="list-checks" class="w-5 h-5"></i>Placas</a>
+      <a href="#relatorios" class="flex flex-col items-center gap-1 p-2 rounded-xl active:scale-95 transition"><i data-lucide="pie-chart" class="w-5 h-5"></i>Relatórios</a>
+      <a href="#config" class="flex flex-col items-center gap-1 p-2 rounded-xl active:scale-95 transition"><i data-lucide="settings" class="w-5 h-5"></i>Config</a>
+    </div>
+  </footer>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useCallback } = React;
+
+    // ─────────────────────────────────────────
+    // 🔧 TROQUE AQUI quando hospedar no Render
+    // ─────────────────────────────────────────
+    const API_URL = 'http://localhost:8080/Automoveis';
+
+    // Entradas ficam só no frontend (não existe no backend)
+    const ENTRADAS_KEY = 'estaciona_entradas_v1';
+
+    function getEntradas() {
+      try { return JSON.parse(localStorage.getItem(ENTRADAS_KEY)) || {}; }
+      catch { return {}; }
+    }
+    function saveEntrada(id) {
+      const entradas = getEntradas();
+      if (!entradas[id]) {
+        entradas[id] = Date.now();
+        localStorage.setItem(ENTRADAS_KEY, JSON.stringify(entradas));
+      }
+    }
+    function removeEntrada(id) {
+      const entradas = getEntradas();
+      delete entradas[id];
+      localStorage.setItem(ENTRADAS_KEY, JSON.stringify(entradas));
+    }
+
+    // Mapeia backend → frontend
+    function fromBackend(item) {
+      const entradas = getEntradas();
+      return {
+        id: item.automoveisid,
+        placa: item.placa || '',
+        tipo: item.automovel?.toLowerCase() || 'carro',   // "Carro" → "carro"
+        valor: item.valor || 0,
+        pago: item.pago || false,
+        metodoPagamento: item.metodopagamento?.toLowerCase() || null, // "Pix" → "pix"
+        entrada: entradas[item.automoveisid] || Date.now(),
+      };
+    }
+
+    // Mapeia frontend → backend
+    function toBackend(item) {
+      const capitalize = s => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : null;
+      return {
+        placa: item.placa,
+        automovel: capitalize(item.tipo),               // "carro" → "Carro"
+        valor: item.valor,
+        pago: item.pago,
+        metodopagamento: item.pago ? capitalize(item.metodoPagamento) : null, // "pix" → "Pix"
+      };
+    }
+
+    // ─── API calls ───
+    async function apiFetch(path = '', options = {}) {
+      const res = await fetch(API_URL + path, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options,
+      });
+      if (!res.ok) throw new Error(`Erro ${res.status}`);
+      const text = await res.text();
+      return text ? JSON.parse(text) : null;
+    }
+
+    const api = {
+      getAll:  ()           => apiFetch(),
+      create:  (body)       => apiFetch('/Add', { method: 'POST', body: JSON.stringify(body) }),
+      update:  (id, body)   => apiFetch(`/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+      delete:  (id)         => apiFetch(`/${id}`, { method: 'DELETE' }),
+    };
+
+    // ─── Utilitários ───
+    function formatBRL(value) {
+      const n = Number(value) || 0;
+      return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    // ─── Componentes ───
+    function Toast({ message, type }) {
+      if (!message) return null;
+      const colors = type === 'error'
+        ? 'bg-red-600 text-white'
+        : 'bg-emerald-600 text-white';
+      return (
+        <div className={`fixed bottom-20 md:bottom-6 right-4 z-50 px-4 py-3 rounded-2xl shadow-lg animate-fadeIn ${colors}`}>
+          {message}
+        </div>
+      );
+    }
+
+    function StatCard({ icon, label, value, sub }) {
+      return (
+        <div className="group p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 shadow-sm hover:shadow-md transition animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600/10 text-blue-700 dark:text-blue-300">
+              <i data-lucide={icon} className="w-5 h-5"></i>
+            </span>
+            <div className="flex-1">
+              <div className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</div>
+              <div className="text-2xl font-semibold">{value}</div>
+              {sub && <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">{sub}</div>}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function Tabs({ tab, setTab }) {
+      const tabs = [
+        { id: 'todos', label: 'Todos', icon: 'list' },
+        { id: 'carro', label: 'Carros', icon: 'car' },
+        { id: 'moto',  label: 'Motos',  icon: 'motorcycle' },
+      ];
+      return (
+        <div className="flex w-full overflow-x-auto gap-2 pb-1">
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={'flex items-center gap-2 px-4 py-2 rounded-2xl border transition ' +
+                (tab === t.id
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-glow'
+                  : 'bg-white/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800')}>
+              <i data-lucide={t.icon} className="w-4 h-4"></i>
+              <span>{t.label}</span>
+            </button>
+          ))}
+        </div>
+      );
+    }
+
+    function PaymentFilter({ paymentFilter, setPaymentFilter }) {
+      const filters = [
+        { id: 'todos',     label: 'Todos',    icon: 'list' },
+        { id: 'pagos',     label: 'Pagos',    icon: 'badge-check' },
+        { id: 'pendentes', label: 'Pendentes', icon: 'clock' },
+      ];
+      return (
+        <div className="flex w-full overflow-x-auto gap-2 pb-1">
+          {filters.map(f => (
+            <button key={f.id} onClick={() => setPaymentFilter(f.id)}
+              className={'flex items-center gap-2 px-4 py-2 rounded-2xl border transition ' +
+                (paymentFilter === f.id
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-glow'
+                  : 'bg-white/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800')}>
+              <i data-lucide={f.icon} className="w-4 h-4"></i>
+              <span>{f.label}</span>
+            </button>
+          ))}
+        </div>
+      );
+    }
+
+    function AddForm({ onAdd, loading }) {
+      const [placa, setPlaca] = useState('');
+      const [tipo, setTipo] = useState('carro');
+      const [valor, setValor] = useState('');
+      const [pago, setPago] = useState(false);
+      const [metodoPagamento, setMetodoPagamento] = useState('dinheiro');
+      const [submitting, setSubmitting] = useState(false);
+
+      async function handleSubmit(e) {
+        e.preventDefault();
+        if (!placa.trim() || submitting) return;
+        setSubmitting(true);
+        await onAdd({ placa: placa.trim().toUpperCase(), tipo, valor: Number(valor) || 0, pago, metodoPagamento: pago ? metodoPagamento : null });
+        setPlaca(''); setValor(''); setPago(false); setTipo('carro'); setMetodoPagamento('dinheiro');
+        setSubmitting(false);
+      }
+
+      return (
+        <form onSubmit={handleSubmit} className="grid gap-3 md:grid-cols-12 items-end p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 animate-fadeIn">
+          <div className="md:col-span-3">
+            <label className="text-xs text-slate-500 dark:text-slate-400">Placa</label>
+            <input value={placa} onChange={e => setPlaca(e.target.value)} placeholder="ABC-1234"
+              className="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:ring-4 focus:ring-blue-500/20" />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 dark:text-slate-400">Tipo</label>
+            <select value={tipo} onChange={e => setTipo(e.target.value)}
+              className="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:ring-4 focus:ring-blue-500/20">
+              <option value="carro">Carro</option>
+              <option value="moto">Moto</option>
+            </select>
+          </div>
+          <div className="md:col-span-2">
+            <label className="text-xs text-slate-500 dark:text-slate-400">Valor (R$)</label>
+            <input value={valor} onChange={e => setValor(e.target.value.replace(',', '.'))} type="number" step="0.01" min="0" placeholder="0,00"
+              className="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:ring-4 focus:ring-blue-500/20" />
+          </div>
+          <div className="flex items-center gap-2">
+            <input id="pago" type="checkbox" checked={pago} onChange={e => setPago(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-blue-600" />
+            <label htmlFor="pago" className="text-sm">Pago</label>
+          </div>
+          {pago && (
+            <div className="md:col-span-2">
+              <label className="text-xs text-slate-500 dark:text-slate-400">Método</label>
+              <select value={metodoPagamento} onChange={e => setMetodoPagamento(e.target.value)}
+                className="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:ring-4 focus:ring-blue-500/20">
+                <option value="dinheiro">Dinheiro</option>
+                <option value="pix">Pix</option>
+              </select>
+            </div>
+          )}
+          <div className="md:col-span-1 flex justify-end">
+            <button disabled={submitting || loading}
+              className="w-full md:w-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:brightness-110 active:scale-95 transition disabled:opacity-50">
+              {submitting ? <i data-lucide="loader" className="w-4 h-4 animate-spin"></i> : <i data-lucide="plus" className="w-4 h-4"></i>}
+              Adicionar
+            </button>
+          </div>
+        </form>
+      );
+    }
+
+    function Row({ item, onTogglePago, onUpdateValor, onDelete, onUpdateMetodoPagamento }) {
+      const [editing, setEditing] = useState(false);
+      const [tempValor, setTempValor] = useState(item.valor);
+      const [tempMetodoPagamento, setTempMetodoPagamento] = useState(item.metodoPagamento || 'dinheiro');
+      const [saving, setSaving] = useState(false);
+
+      async function save() {
+        setSaving(true);
+        await onUpdateValor(item.id, Number(tempValor) || 0, tempMetodoPagamento);
+        setSaving(false);
+        setEditing(false);
+      }
+
+      return (
+        <div className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 hover:shadow-sm transition animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <span className={'inline-flex items-center justify-center w-10 h-10 rounded-xl ' + (item.tipo === 'carro' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300' : 'bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-300')}>
+              <i data-lucide={item.tipo === 'carro' ? 'car' : 'motorcycle'} className="w-5 h-5"></i>
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold tracking-wide">{item.placa}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">{new Date(item.entrada).toLocaleString('pt-BR')}</div>
+            </div>
+
+            {!editing ? (
+              <div className="text-right">
+                <div className={'text-sm font-medium ' + (item.pago ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400')}>
+                  {item.pago ? (item.metodoPagamento === 'pix' ? 'Pago (Pix)' : 'Pago (Dinheiro)') : 'Pendente'}
+                </div>
+                <div className="text-lg font-semibold">{formatBRL(item.valor)}</div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <input type="number" step="0.01" min="0" value={tempValor} onChange={e => setTempValor(e.target.value)}
+                  className="w-28 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900" />
+                {item.pago && (
+                  <select value={tempMetodoPagamento} onChange={e => setTempMetodoPagamento(e.target.value)}
+                    className="px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                    <option value="dinheiro">Dinheiro</option>
+                    <option value="pix">Pix</option>
+                  </select>
+                )}
+                <button onClick={save} disabled={saving}
+                  className="px-3 py-2 rounded-xl bg-emerald-600 text-white hover:brightness-110 disabled:opacity-50">
+                  {saving ? '...' : 'Salvar'}
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center gap-1 ml-2">
+              <button onClick={() => onTogglePago(item)} title="Alternar pago" className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition"><i data-lucide="badge-check" className="w-5 h-5"></i></button>
+              <button onClick={() => setEditing(v => !v)} title="Editar valor" className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition"><i data-lucide="pencil" className="w-5 h-5"></i></button>
+              <button onClick={() => onDelete(item.id)} title="Remover" className="p-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600"><i data-lucide="trash-2" className="w-5 h-5"></i></button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function List({ items, search, tab, paymentFilter, ...handlers }) {
+      const filtered = items.filter(it =>
+        (tab === 'todos' || it.tipo === tab) &&
+        (it.placa || '').toLowerCase().includes(search.toLowerCase()) &&
+        (paymentFilter === 'todos' ||
+          (paymentFilter === 'pagos' && it.pago) ||
+          (paymentFilter === 'pendentes' && !it.pago))
+      );
+
+      return (
+        <div className="grid gap-3">
+          {filtered.length === 0 && (
+            <div className="p-6 text-center rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 animate-fadeIn">
+              <div className="mx-auto w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 mb-2 flex items-center justify-center"><i data-lucide="search-x" className="w-5 h-5"></i></div>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Nada por aqui… tente outra placa, ou adicione um veículo.</p>
+            </div>
+          )}
+          {filtered.map(item => (
+            <Row key={item.id} item={item} {...handlers} />
+          ))}
+        </div>
+      );
+    }
+
+    function Section({ id, title, subtitle, children, action }) {
+      return (
+        <section id={id} className="scroll-mt-24 py-6">
+          <div className="flex items-end justify-between mb-3">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight">{title}</h2>
+              {subtitle && <p className="text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>}
+            </div>
+            {action}
+          </div>
+          {children}
+        </section>
+      );
+    }
+
+    function useTheme() {
+      const [theme, setTheme] = useState(() => {
+        const saved = localStorage.getItem('theme');
+        if (saved) return saved;
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      });
+      useEffect(() => {
+        const root = document.documentElement;
+        if (theme === 'dark') root.classList.add('dark'); else root.classList.remove('dark');
+        localStorage.setItem('theme', theme);
+      }, [theme]);
+      return [theme, setTheme];
+    }
+
+    function App() {
+      const [theme, setTheme] = useTheme();
+      const [items, setItems] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [toast, setToast] = useState({ message: '', type: 'success' });
+      const [tab, setTab] = useState('todos');
+      const [search, setSearch] = useState('');
+      const [paymentFilter, setPaymentFilter] = useState('todos');
+
+      function showToast(message, type = 'success') {
+        setToast({ message, type });
+        setTimeout(() => setToast({ message: '', type: 'success' }), 3000);
+      }
+
+      // Carrega todos os itens do backend
+      async function loadItems() {
+        try {
+          setLoading(true);
+          const data = await api.getAll();
+          setItems((data || []).map(fromBackend));
+        } catch (e) {
+          showToast('Erro ao carregar dados do servidor.', 'error');
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      useEffect(() => { loadItems(); }, []);
+
+      useEffect(() => {
+        setTimeout(() => window?.lucide?.createIcons?.(), 0);
+      }, [items, tab, search, theme, loading]);
+
+      async function addItem(novo) {
+        // Verifica placa duplicada localmente antes de chamar API
+        const placaNova = novo.placa.trim().toUpperCase();
+        if (items.some(i => (i.placa || '').trim().toUpperCase() === placaNova)) {
+          showToast(`A placa ${placaNova} já está cadastrada.`, 'error');
+          return;
+        }
+        try {
+          await api.create(toBackend(novo));
+          await loadItems();
+          // Salva entrada após recarregar (pega o ID do novo item)
+          showToast('Veículo adicionado!');
+        } catch (e) {
+          showToast('Erro ao adicionar veículo.', 'error');
+        }
+      }
+
+      async function togglePago(item) {
+        const novoPago = !item.pago;
+        try {
+          await api.update(item.id, toBackend({
+            ...item,
+            pago: novoPago,
+            metodoPagamento: novoPago ? (item.metodoPagamento || 'dinheiro') : null,
+          }));
+          await loadItems();
+        } catch (e) {
+          showToast('Erro ao atualizar pagamento.', 'error');
+        }
+      }
+
+      async function updateValor(id, valor, metodoPagamento) {
+        const item = items.find(i => i.id === id);
+        if (!item) return;
+        try {
+          await api.update(id, toBackend({ ...item, valor, metodoPagamento }));
+          await loadItems();
+          showToast('Valor atualizado!');
+        } catch (e) {
+          showToast('Erro ao atualizar valor.', 'error');
+        }
+      }
+
+      async function removeItem(id) {
+        if (!confirm('Remover este veículo?')) return;
+        try {
+          await api.delete(id);
+          removeEntrada(id);
+          await loadItems();
+          showToast('Veículo removido!');
+        } catch (e) {
+          showToast('Erro ao remover veículo.', 'error');
+        }
+      }
+
+      const carros = useMemo(() => items.filter(i => i.tipo === 'carro'), [items]);
+      const motos  = useMemo(() => items.filter(i => i.tipo === 'moto'),  [items]);
+
+      const totalCarrosPago    = useMemo(() => carros.filter(i => i.pago).reduce((s, i) => s + i.valor, 0), [carros]);
+      const totalCarrosDinheiro = useMemo(() => carros.filter(i => i.pago && i.metodoPagamento === 'dinheiro').reduce((s, i) => s + i.valor, 0), [carros]);
+      const totalCarrosPix     = useMemo(() => carros.filter(i => i.pago && i.metodoPagamento === 'pix').reduce((s, i) => s + i.valor, 0), [carros]);
+      const pendCarros         = useMemo(() => carros.filter(i => !i.pago).reduce((s, i) => s + i.valor, 0), [carros]);
+
+      const totalMotosPago     = useMemo(() => motos.filter(i => i.pago).reduce((s, i) => s + i.valor, 0), [motos]);
+      const totalMotosDinheiro  = useMemo(() => motos.filter(i => i.pago && i.metodoPagamento === 'dinheiro').reduce((s, i) => s + i.valor, 0), [motos]);
+      const totalMotosPix      = useMemo(() => motos.filter(i => i.pago && i.metodoPagamento === 'pix').reduce((s, i) => s + i.valor, 0), [motos]);
+      const pendMotos          = useMemo(() => motos.filter(i => !i.pago).reduce((s, i) => s + i.valor, 0), [motos]);
+
+      return (
+        <div className="grid gap-8">
+          <Toast message={toast.message} type={toast.type} />
+
+          {/* Início */}
+          <Section id="inicio" title="Resumo" subtitle="Visão geral rápida do caixa e movimentação">
+            {loading ? (
+              <div className="flex items-center gap-3 text-slate-500 py-8 justify-center animate-blink">
+                <i data-lucide="loader" className="w-5 h-5 animate-spin"></i> Carregando dados...
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <StatCard icon="car"        label="Carros pagos"  value={formatBRL(totalCarrosPago)} sub={`${carros.filter(i => i.pago).length} de ${carros.length}`} />
+                <StatCard icon="motorcycle" label="Motos pagas"   value={formatBRL(totalMotosPago)}  sub={`${motos.filter(i => i.pago).length} de ${motos.length}`} />
+                <StatCard icon="alarm-clock" label="Pend. Carros" value={formatBRL(pendCarros)}      sub={`${carros.filter(i => !i.pago).length} itens`} />
+                <StatCard icon="alarm-clock" label="Pend. Motos"  value={formatBRL(pendMotos)}       sub={`${motos.filter(i => !i.pago).length} itens`} />
+              </div>
+            )}
+          </Section>
+
+          {/* Placas */}
+          <Section id="placas" title="Placas" subtitle="Gerencie entradas, pagamentos e valores" action={
+            <button onClick={loadItems} className="hidden md:inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800">
+              <i data-lucide="refresh-cw" className="w-4 h-4"></i>
+              Atualizar
+            </button>
+          }>
+            <div className="grid gap-4">
+              <AddForm onAdd={addItem} loading={loading} />
+
+              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+                <Tabs tab={tab} setTab={setTab} />
+                <PaymentFilter paymentFilter={paymentFilter} setPaymentFilter={setPaymentFilter} />
+                <div className="flex-1"></div>
+                <div className="relative">
+                  <i data-lucide="search" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar placa..."
+                    className="w-full sm:w-64 pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:ring-4 focus:ring-blue-500/20" />
+                </div>
+              </div>
+
+              <List items={items} search={search} tab={tab} paymentFilter={paymentFilter}
+                onTogglePago={togglePago} onUpdateValor={updateValor} onUpdateMetodoPagamento={() => {}} onDelete={removeItem} />
+            </div>
+          </Section>
+
+          {/* Relatórios */}
+          <Section id="relatorios" title="Relatórios" subtitle="Totais por tipo, status e método de pagamento">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
+                <h3 className="font-semibold mb-2 flex items-center gap-2"><i data-lucide="car" className="w-5 h-5"></i>Carros</h3>
+                <ul className="text-sm grid gap-1">
+                  <li className="flex justify-between"><span>Arrecadado (pagos)</span><span className="font-semibold">{formatBRL(totalCarrosPago)}</span></li>
+                  <li className="flex justify-between"><span className="ml-4">→ Dinheiro</span><span className="font-semibold">{formatBRL(totalCarrosDinheiro)}</span></li>
+                  <li className="flex justify-between"><span className="ml-4">→ Pix</span><span className="font-semibold">{formatBRL(totalCarrosPix)}</span></li>
+                  <li className="flex justify-between"><span>Pendente</span><span className="font-semibold">{formatBRL(pendCarros)}</span></li>
+                  <li className="flex justify-between"><span>Itens</span><span className="font-semibold">{carros.length}</span></li>
+                </ul>
+              </div>
+              <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
+                <h3 className="font-semibold mb-2 flex items-center gap-2"><i data-lucide="motorcycle" className="w-5 h-5"></i>Motos</h3>
+                <ul className="text-sm grid gap-1">
+                  <li className="flex justify-between"><span>Arrecadado (pagos)</span><span className="font-semibold">{formatBRL(totalMotosPago)}</span></li>
+                  <li className="flex justify-between"><span className="ml-4">→ Dinheiro</span><span className="font-semibold">{formatBRL(totalMotosDinheiro)}</span></li>
+                  <li className="flex justify-between"><span className="ml-4">→ Pix</span><span className="font-semibold">{formatBRL(totalMotosPix)}</span></li>
+                  <li className="flex justify-between"><span>Pendente</span><span className="font-semibold">{formatBRL(pendMotos)}</span></li>
+                  <li className="flex justify-between"><span>Itens</span><span className="font-semibold">{motos.length}</span></li>
+                </ul>
+              </div>
+            </div>
+          </Section>
+
+          {/* Configurações */}
+          <Section id="config" title="Configurações" subtitle="Tema e preferências">
+            <div className="grid gap-4">
+              <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold">Tema</div>
+                    <div className="text-sm text-slate-500 dark:text-slate-400">Claro ou escuro</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setTheme('light')} className={'px-3 py-1.5 rounded-xl border ' + (theme === 'light' ? 'bg-blue-600 text-white border-blue-600 shadow-glow' : 'border-slate-200 dark:border-slate-800')}>Claro</button>
+                    <button onClick={() => setTheme('dark')}  className={'px-3 py-1.5 rounded-xl border ' + (theme === 'dark'  ? 'bg-blue-600 text-white border-blue-600 shadow-glow' : 'border-slate-200 dark:border-slate-800')}>Escuro</button>
+                    <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800">Alternar</button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
+                <div className="font-semibold mb-1">URL do Backend</div>
+                <div className="text-sm text-slate-500 dark:text-slate-400 mb-2">Atual: <code className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">{API_URL}</code></div>
+                <div className="text-xs text-slate-400">Para trocar, edite a constante <code>API_URL</code> no topo do arquivo <code>index.html</code>.</div>
+              </div>
+            </div>
+          </Section>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+
+    const themeBtn = document.getElementById('themeToggle');
+    themeBtn?.addEventListener('click', () => {
+      const isDark = document.documentElement.classList.contains('dark');
+      document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', isDark ? 'light' : 'dark');
+      window?.lucide?.createIcons?.();
+    });
+
+    window?.lucide?.createIcons?.();
+  </script>
+</body>
+</html>
