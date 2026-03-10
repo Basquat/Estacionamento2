@@ -1,8 +1,8 @@
 <h1 align="center">🚗 Sistema de Gestão de Estacionamento</h1>
 
 <p align="center">
-Sistema backend/fullstack para controle de fluxo de veículos e gestão de estacionamento,
-desenvolvido com Java, Spring Boot e persistência local utilizando Spring Data JPA.
+Sistema fullstack para controle de fluxo de veículos e gestão de estacionamento,
+desenvolvido com Java, Spring Boot, persistência em nuvem via Supabase (PostgreSQL) e frontend em HTML/React.
 </p>
 
 ---
@@ -16,11 +16,11 @@ desenvolvido com Java, Spring Boot e persistência local utilizando Spring Data 
   <img width="12"/>
   <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/hibernate/hibernate-original.svg" height="40" alt="Hibernate"/>
   <img width="12"/>
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mysql/mysql-original.svg" height="40" alt="JPA / Banco Relacional"/>
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/postgresql/postgresql-original.svg" height="40" alt="PostgreSQL"/>
+  <img width="12"/>
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg" height="40" alt="React"/>
   <img width="12"/>
   <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/git/git-original.svg" height="40" alt="Git"/>
-  <img width="12"/>
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/linux/linux-original.svg" height="40" alt="Linux"/>
 </div>
 
 ---
@@ -28,16 +28,16 @@ desenvolvido com Java, Spring Boot e persistência local utilizando Spring Data 
 <h2>📌 Visão Geral</h2>
 
 <p>
-O <strong>Sistema de Gestão de Estacionamento</strong> é uma aplicação desenvolvida para o controle de entrada,
+O <strong>Sistema de Gestão de Estacionamento</strong> é uma aplicação fullstack desenvolvida para o controle de entrada,
 permanência e saída de veículos, com foco em organização de domínio, integridade transacional
 e boas práticas de engenharia de software.
 </p>
 
 <p>
-O projeto foi arquitetado para operar com <strong>persistência local</strong>, utilizando
-<strong>Spring Data JPA</strong>, eliminando a necessidade de servidores externos ou bancos de dados em nuvem.
-Isso permite que a aplicação seja executada de forma <strong>standalone</strong> em ambiente local,
-facilitando testes, demonstrações técnicas e avaliação por recrutadores.
+O backend opera com <strong>persistência em nuvem</strong> via <strong>Supabase (PostgreSQL)</strong>,
+utilizando <strong>Spring Data JPA</strong> com Hibernate como provedor ORM.
+O frontend é uma aplicação <strong>HTML + React</strong> que consome a API REST diretamente,
+sem necessidade de framework ou etapa de build.
 </p>
 
 ---
@@ -46,9 +46,9 @@ facilitando testes, demonstrações técnicas e avaliação por recrutadores.
 
 <ul>
   <li>Aplicar Java e Spring Boot em um sistema transacional realista</li>
-  <li>Demonstrar uso prático de Spring Data JPA e Hibernate</li>
-  <li>Implementar arquitetura em camadas (Controller, Service, Repository, Model)</li>
-  <li>Garantir integridade e consistência dos dados</li>
+  <li>Demonstrar uso prático de Spring Data JPA, Hibernate e PostgreSQL</li>
+  <li>Implementar uma API REST completa com todos os verbos HTTP (GET, POST, PUT, DELETE)</li>
+  <li>Integrar backend e frontend de forma desacoplada via API</li>
   <li>Servir como evidência técnica de nível júnior</li>
 </ul>
 
@@ -62,26 +62,38 @@ facilidade de manutenção e evolução futura.
 </p>
 
 <ul>
-  <li><strong>Controller Layer</strong> – Exposição de endpoints REST</li>
-  <li><strong>Service Layer</strong> – Regras de negócio e lógica transacional</li>
+  <li><strong>Controller Layer</strong> – Exposição de endpoints REST com Spring MVC</li>
   <li><strong>Repository Layer</strong> – Persistência de dados com Spring Data JPA</li>
-  <li><strong>Model Layer</strong> – Entidades de domínio e mapeamento ORM</li>
+  <li><strong>Model Layer</strong> – Entidades de domínio com mapeamento ORM via Hibernate e Lombok</li>
+  <li><strong>Frontend</strong> – Interface em HTML + React (sem build) consumindo a API REST</li>
 </ul>
+
+---
+
+<h2>🔌 Endpoints da API</h2>
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `GET` | `/Automoveis` | Lista todos os veículos |
+| `GET` | `/Automoveis/{id}` | Busca veículo por ID |
+| `POST` | `/Automoveis/Add` | Cadastra novo veículo |
+| `PUT` | `/Automoveis/{id}` | Atualiza veículo existente |
+| `DELETE` | `/Automoveis/{id}` | Remove veículo |
 
 ---
 
 <h2>💾 Persistência de Dados</h2>
 
 <p>
-A persistência é realizada localmente por meio do <strong>Spring Data JPA</strong>, utilizando
-Hibernate como provedor ORM. Essa abordagem permite:
+A persistência é realizada em nuvem por meio do <strong>Supabase</strong>, utilizando
+PostgreSQL como banco de dados e Hibernate como provedor ORM. Essa abordagem permite:
 </p>
 
 <ul>
   <li>Mapeamento objeto-relacional transparente</li>
   <li>Operações CRUD transacionais</li>
-  <li>Independência de infraestrutura externa</li>
-  <li>Execução simples em qualquer ambiente local</li>
+  <li>Dados persistidos em nuvem, acessíveis de qualquer ambiente</li>
+  <li>Conexão via pooler do Supabase com driver PostgreSQL</li>
 </ul>
 
 ---
@@ -95,17 +107,18 @@ Hibernate como provedor ORM. Essa abordagem permite:
   <li>Acesse o diretório do projeto:
     <pre><code>cd Estacionamento2</code></pre>
   </li>
+  <li>Configure o <code>application.properties</code> com suas credenciais do Supabase:
+    <pre><code>spring.datasource.url=jdbc:postgresql://&lt;host&gt;:6543/postgres?prepareThreshold=0
+spring.datasource.username=&lt;usuario&gt;
+spring.datasource.password=&lt;senha&gt;</code></pre>
+  </li>
   <li>Execute a aplicação:
     <pre><code>./mvnw spring-boot:run</code></pre>
     <p>ou</p>
     <pre><code>mvn spring-boot:run</code></pre>
   </li>
+  <li>Abra o arquivo <code>index.html</code> do frontend no navegador.</li>
 </ol>
-
-<p>
-A aplicação será iniciada localmente, utilizando persistência interna configurada via Spring Data JPA,
-sem necessidade de banco de dados externo.
-</p>
 
 ---
 
@@ -113,12 +126,15 @@ sem necessidade de banco de dados externo.
 
 <pre><code>
 src/main/java
- └── com.estacionamento
-     ├── controller
-     ├── service
-     ├── repository
-     ├── model
+ └── basquat.estacionamento
+     ├── User
+     │   ├── AutoController.java
+     │   ├── AutoModel.java
+     │   └── AutoRepository.java
      └── EstacionamentoApplication.java
+
+frontend
+ └── index.html
 </code></pre>
 
 ---
@@ -126,10 +142,11 @@ src/main/java
 <h2>📈 Valor Técnico</h2>
 
 <ul>
-  <li>Projeto orientado a boas práticas de engenharia de software</li>
-  <li>Aplicação realista de backend Java</li>
-  <li>Arquitetura clara e organizada</li>
-  <li>Persistência local para fácil avaliação</li>
+  <li>API REST completa com todos os verbos HTTP</li>
+  <li>Integração real entre frontend e backend desacoplados</li>
+  <li>Persistência em nuvem com PostgreSQL via Supabase</li>
+  <li>Uso de Lombok para redução de boilerplate</li>
+  <li>Frontend funcional sem etapa de build</li>
   <li>Base sólida para evolução futura</li>
 </ul>
 
