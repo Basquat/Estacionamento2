@@ -7,10 +7,58 @@ import lombok.Data;
 
 
 
-@Data
+
 @Entity
 @Table(name = "auto_model")
 public class AutoModel {
+
+    public int getAutomoveisid() {
+        return automoveisid;
+    }
+
+    public void setAutomoveisid(int automoveisid) {
+        this.automoveisid = automoveisid;
+    }
+
+    public Boolean getPago() {
+        return pago;
+    }
+
+    public void setPago(Boolean pago) {
+        this.pago = pago;
+    }
+
+    public String getPlaca() {
+        return placa;
+    }
+
+    public void setPlaca(String placa) {
+        this.placa = placa;
+    }
+
+    public automovel getAutomovel() {
+        return automovel;
+    }
+
+    public void setAutomovel(automovel automovel) {
+        this.automovel = automovel;
+    }
+
+    public int getValor() {
+        return valor;
+    }
+
+    public void setValor(int valor) {
+        this.valor = valor;
+    }
+
+    public metodopagamento getMetodopagamento() {
+        return metodopagamento;
+    }
+
+    public void setMetodopagamento(metodopagamento metodopagamento) {
+        this.metodopagamento = metodopagamento;
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
