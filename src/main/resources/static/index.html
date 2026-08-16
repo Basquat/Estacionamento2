@@ -540,6 +540,17 @@
     useEffect(()=>{ loadItems(); }, []);
 
     useEffect(()=>{
+      const src = new EventSource('/eventos');
+      src.addEventListener('atualizacao', () => {
+        loadItems();
+      });
+      src.onerror(() => {
+        // EventSource reconecta automaticamente
+      });
+      return () => src.close();
+    }, []);
+
+    useEffect(()=>{
       setTimeout(()=>window?.lucide?.createIcons?.(), 0);
     }, [items, tab, search, theme, loading]);
 
@@ -647,6 +658,14 @@
               .reduce((s,p) => s + (Number(p.valor)||0), 0);
     }
 
+    function countPagamentos(lista, metodo){
+      return lista
+              .filter(i => i.pago)
+              .flatMap(i => i.pagamentos || [])
+              .filter(p => p.metodo === metodo)
+              .length;
+    }
+
     const totalCarrosPago = useMemo(()=> carros.filter(i=>i.pago).reduce((s,i)=>s+i.valor,0), [carros]);
     const totalCarrosDinheiro = useMemo(()=> totalPorMetodo(carros, 'dinheiro'), [carros]);
     const totalCarrosPix = useMemo(()=> totalPorMetodo(carros, 'pix'), [carros]);
@@ -674,6 +693,13 @@
                   <StatCard icon="motorbike" label="Motos pagas" value={formatBRL(totalMotosPago)} sub={`${motos.filter(i=>i.pago).length} de ${motos.length}`} />
                   <StatCard icon="alarm-clock" label="Pend. Carros" value={formatBRL(pendCarros)} sub={`${carros.filter(i=>!i.pago).length} itens`} />
                   <StatCard icon="alarm-clock" label="Pend. Motos" value={formatBRL(pendMotos)} sub={`${motos.filter(i=>!i.pago).length} itens`} />
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-3">
+                  <StatCard icon="wallet" label="Carro: Dinheiro" value={formatBRL(totalCarrosDinheiro)} sub={`${countPagamentos(carros, 'dinheiro')} pagamentos`} />
+                  <StatCard icon="credit-card" label="Carro: Pix" value={formatBRL(totalCarrosPix)} sub={`${countPagamentos(carros, 'pix')} pagamentos`} />
+                  <StatCard icon="wallet" label="Moto: Dinheiro" value={formatBRL(totalMotosDinheiro)} sub={`${countPagamentos(motos, 'dinheiro')} pagamentos`} />
+                  <StatCard icon="credit-card" label="Moto: Pix" value={formatBRL(totalMotosPix)} sub={`${countPagamentos(motos, 'pix')} pagamentos`} />
                 </div>
               </Section>
 

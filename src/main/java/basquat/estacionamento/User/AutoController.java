@@ -14,17 +14,23 @@ public class AutoController {
     @Autowired
     private AutoRepository autoRepository;
 
+    @Autowired
+    private EventoService eventoService;
+
     @PostMapping("/Add")
     public AutoModel addCarro(@RequestBody AutoModel model) {
         if (autoRepository.existsByPlacaIgnoreCase(model.getPlaca())) {
             throw new RuntimeException("A placa " + model.getPlaca() + " já está cadastrada.");
         }
-        return autoRepository.save(model);
+        AutoModel saved = autoRepository.save(model);
+        eventoService.notificar();
+        return saved;
     }
 
     @DeleteMapping("/{id}")
     public void deleteAuto(@PathVariable String id) {
         autoRepository.deleteById(id);
+        eventoService.notificar();
     }
 
     @PutMapping("/{id}")
@@ -43,7 +49,9 @@ public class AutoController {
         model.setPago(modelDetail.getPago());
         model.setEntrada(modelDetail.getEntrada());
 
-        return autoRepository.save(model);
+        AutoModel saved = autoRepository.save(model);
+        eventoService.notificar();
+        return saved;
     }
 
     @GetMapping

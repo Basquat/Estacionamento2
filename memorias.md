@@ -148,3 +148,52 @@ END $$;
 docker build -t estacionamento .
 docker run -p 8080:8080 estacionamento
 ```
+
+### Alteração 4: Atualizações em Tempo Real via SSE
+**Objetivo:** Quando um usuário adiciona, apaga ou atualiza um veículo (ou gerencia pagamentos), todos os usuários conectados veem a atualização imediatamente sem precisar dar refresh (F5).
+
+**Tecnologia:** Server-Sent Events (SSE) — nativo no Spring Boot via `SseEmitter`, sem dependências adicionais.
+
+**Arquivos criados:**
+- `EventoService.java` (`src/main/java/basquat/estacionamento/User/EventoService.java`): serviço Spring que gerencia uma lista thread-safe (`CopyOnWriteArrayList`) de `SseEmitter` e expõe o método `notificar()` que faz broadcast de um evento `atualizacao` para todos os emitters conectados.
+- `EventoController.java` (`src/main/java/basquat/estacionamento/User/EventoController.java`): controller REST em `GET /eventos` que retorna um `SseEmitter` (produz `text/event-stream`).
+
+**Arquivos modificados:**
+- `AutoController.java`: injetado `EventoService` via `@Autowired`; chamado `eventoService.notificar()` após POST (addCarro), PUT (putModel) e DELETE (deleteAuto). O fluxo de retorno foi preservado — o método salva, notifica, depois retorna o objeto salvo.
+- `PagamentoController.java`: injetado `EventoService` via `@Autowired`; chamado `eventoService.notificar()` após POST (addPagamento), DELETE por ID (deletePagamento) e DELETE em massa (deleteAllPagamentos).
+- `index.html` (frontend): adicionado `useEffect` com `EventSource('/eventos')` que escuta eventos `atualizacao` e chama `loadItems()` automaticamente. O `EventSource` reconecta sozinho em caso de queda. Cleanup com `src.close()` no unmount.
+
+**Como funciona:**
+1. Cliente abre conexão SSE em `GET /eventos` (mantida viva pelo servidor).
+2. Qualquer mutation (add/edit/delete de veículo ou pagamento) dispara `eventoService.notificar()`.
+3. O broadcast envia um evento `atualizacao` para todos os emitters conectados.
+4. Cada cliente recebe o evento e recarrega a lista via `loadItems()`.
+
+**Considerações:**
+- Zero impacto nas rotas existentes — o endpoint `/eventos` é independente de `/Automoveis`.
+- Nenhuma alteração no `pom.xml` — SSE é nativo do Spring Web MVC.
+- Conexões são automaticamente removidas da lista quando o cliente desconecta (`onCompletion` / `onTimeout`).
+
+### Alteração 5: Endpoint /health para manter o servidor Render ativo
+**Objetivo:** O Render (plano gratuito) dorme após 15 minutos sem requisições. O endpoint `/health` permite que um serviço de pinger externo envie requisições periódicas para manter o servidor ativo.
+
+**Arquivo criado:**
+- `HealthController.java` (`src/main/java/basquat/estacionamento/User/HealthController.java`): controller REST com `GET /health` retornando `{"status": "ok", "timestamp": <unix>}`.
+
+**Como manter o servidor ativo no Render:**
+1. Configurar um pinger externo (ex: [UptimeRobot](https://uptimerobot.com), gratuito) para fazer `GET /health` a cada 5 minutos.
+2. Alternativa: usar o recurso **Health Check** do próprio Render — no dashboard do Web Service, em *Settings → Health Check*, apontar para `GET /health`.
+3. O endpoint também serve como verificação de que a aplicação subiu corretamente após deploys.
+
+### Alteração 6: Breakdown de pagamentos no Resumo
+**Objetivo:** O Resumo (seção "Resumo" no topo) agora mostra a separação por dinheiro e pix para carros e motos, mesmo quando há múltiplas formas de pagamento. O Relatório já mostrava essa divisão; o Resumo não.
+
+**Arquivo modificado:**
+- `index.html` (frontend): 
+  - Adicionada função `countPagamentos(lista, metodo)` para contar o número de pagamentos por método.
+  - Adicionados 4 `StatCard` novos no grid do Resumo: "Carro: Dinheiro", "Carro: Pix", "Moto: Dinheiro", "Moto: Pix" — mostrando o valor arrecadado e a quantidade de pagamentos por método.
+  - Corrigido bug: `totalCarrosPix` estava usando `totalPorMetodo(motos, 'pix')` em vez de `totalPorMetodo(carros, 'pix')` — agora usa `carros` corretamente.
+
+**Resultados visuais:**
+- Resumo agora exibe 8 cards: 4 originais (total pago, pendente) + 4 novos (dinheiro/pix por tipo de veículo).
+- Relatórios mantém a exibição existente (arrecadado, dinheiro, pix, pendente, itens por tipo).

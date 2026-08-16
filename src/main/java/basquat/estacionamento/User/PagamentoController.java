@@ -13,6 +13,9 @@ public class PagamentoController {
     @Autowired
     private PagamentoRepository pagamentoRepository;
 
+    @Autowired
+    private EventoService eventoService;
+
     @GetMapping("/{autoId}/pagamentos")
     public List<Pagamento> getPagamentos(@PathVariable String autoId) {
         return pagamentoRepository.findByAutoId(autoId);
@@ -23,16 +26,20 @@ public class PagamentoController {
         pagamento.setAutoId(autoId);
         pagamento.setId(java.util.UUID.randomUUID().toString());
         pagamento.setData(System.currentTimeMillis());
-        return pagamentoRepository.save(pagamento);
+        Pagamento saved = pagamentoRepository.save(pagamento);
+        eventoService.notificar();
+        return saved;
     }
 
     @DeleteMapping("/{autoId}/pagamentos/{pagamentoId}")
     public void deletePagamento(@PathVariable String autoId, @PathVariable String pagamentoId) {
         pagamentoRepository.deleteById(pagamentoId);
+        eventoService.notificar();
     }
 
     @DeleteMapping("/{autoId}/pagamentos")
     public void deleteAllPagamentos(@PathVariable String autoId) {
         pagamentoRepository.deleteByAutoId(autoId);
+        eventoService.notificar();
     }
 }
