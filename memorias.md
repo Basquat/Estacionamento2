@@ -127,8 +127,24 @@ END $$;
    - `DATABASE_USERNAME`
    - `DATABASE_PASSWORD`
 
-### Ações futuras pendentes
-- [ ] Corrigir backend para retornar `pagamentosMap` junto com `items` na listagem (otimização)
-- [ ] Adicionar campo `data` (timestamp) na tabela `auto_model` para filtros por período
-- [ ] Implementar relatório por período (dia/semana/mês)
-- [ ] Adicionar histórico de pagamentos com data/hora
+### Deploy via Docker (recomendado para Render)
+- `Dockerfile`: multi-stage build com Eclipse Temurin JDK 21 + JRE 21
+- `.dockerignore`: ignora `.git`, `target`, `mvnw`, `.idea`, etc.
+- Build automático pelo Render usando o Dockerfile
+
+### Como configurar no Render com Docker
+1. Crie um **Web Service** conectando o repositório
+2. Em **Environment**, selecione **Docker**
+3. Deixe **Build Command** e **Start Command** vazios (o Dockerfile controla)
+4. Adicione as variáveis de ambiente:
+   - `DATABASE_URL`
+   - `DATABASE_USERNAME`
+   - `DATABASE_PASSWORD`
+   - `SPRING_PROFILES_ACTIVE` = `prod`
+5. O Render detecta o `Dockerfile` automaticamente
+
+### Testar Docker localmente
+```bash
+docker build -t estacionamento .
+docker run -p 8080:8080 estacionamento
+```

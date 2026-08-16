@@ -1,0 +1,14 @@
+.git
+.gitignore
+.mvn
+mvnw
+mvnw.cmd
+target
+*.md
+.idea
+*.iml
+node_modules
+dist
+build
+.gradle
+.terraform
