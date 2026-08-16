@@ -390,6 +390,18 @@
     // o registro caso tenha sido um engano. Evita reabrir um recibo já fechado.
     const travado = item.pago;
 
+    // Se outro dispositivo confirmar o pagamento deste MESMO veículo
+    // enquanto você está com uma edição aberta aqui, cancela a edição e
+    // avisa — evita clicar "Salvar" achando que vai funcionar e não
+    // acontecer nada.
+    useEffect(()=>{
+      if(item.pago && (editingValor || editingPagamento)){
+        setEditingValor(false);
+        setEditingPagamento(false);
+        alert('A placa ' + item.placa + ' acabou de ser paga em outro dispositivo. A edição foi cancelada.');
+      }
+    }, [item.pago]);
+
     async function saveValor(){
       if(saving) return;
       setSaving(true);
@@ -538,7 +550,13 @@
   function App(){
     const [theme, setTheme] = useTheme();
     const [items, setItems] = useState([]);
+    // `loading` só é usado na primeira carga (tela cheia de "Carregando...").
+    // `refreshing` é usado nas atualizações em segundo plano (disparadas por
+    // outro dispositivo via SSE) e NUNCA desmonta a tela — assim o que o
+    // usuário está digitando (form de adicionar, painel de pagamento aberto
+    // etc.) não some quando alguém em outro aparelho salva algo.
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [tab, setTab] = useState('todos');
     const [search, setSearch] = useState('');
     const [paymentFilter, setPaymentFilter] = useState('todos');
@@ -552,7 +570,7 @@
     useEffect(()=>{
       const src = new EventSource('/eventos');
       src.addEventListener('atualizacao', () => {
-        loadItems();
+        loadItems({ silent: true });
       });
       // ATENÇÃO: onerror é uma propriedade (atribuição), não um método
       // para "registrar um callback" chamando-o como função. Chamar
@@ -568,17 +586,21 @@
       setTimeout(()=>window?.lucide?.createIcons?.(), 0);
     }, [items, tab, search, theme, loading]);
 
-    async function loadItems(){
-      setLoading(true);
+    // `silent = true` é usado nas atualizações vindas de outro dispositivo:
+    // busca os dados novos e atualiza a lista SEM trocar a tela toda por um
+    // spinner e sem interromper o que o usuário estiver fazendo.
+    async function loadItems({ silent = false } = {}){
+      if(silent) setRefreshing(true); else setLoading(true);
       try {
         const res = await fetch(API_BASE);
         if (!res.ok) throw new Error(await parseErro(res, 'Falha ao carregar dados'));
         const data = await res.json();
         setItems(data.map(migrateItem));
       } catch (err) {
-        alert(err.message || 'Erro ao carregar dados');
+        if(!silent) alert(err.message || 'Erro ao carregar dados');
+        else console.error('Falha ao sincronizar em segundo plano:', err);
       } finally {
-        setLoading(false);
+        if(silent) setRefreshing(false); else setLoading(false);
       }
     }
 
@@ -701,6 +723,12 @@
 
     return (
             <div className="grid gap-8">
+              {refreshing && (
+                      <div className="fixed top-16 right-3 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/90 dark:bg-slate-100/90 text-white dark:text-slate-900 text-xs shadow-lg animate-fadeIn">
+                        <Icon name="loader-circle" className="w-3.5 h-3.5 animate-spin" />
+                        Sincronizando...
+                      </div>
+              )}
               <Section id="inicio" title="Resumo" subtitle="Visão geral rápida do caixa e movimentação">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                   <StatCard icon="car" label="Carros pagos" value={formatBRL(totalCarrosPago)} sub={`${carros.filter(i=>i.pago).length} de ${carros.length}`} />
