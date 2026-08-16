@@ -49,11 +49,17 @@
   </style>
 </head>
 <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 selection:bg-blue-200 dark:selection:bg-blue-800/60">
+<!--
+  IMPORTANTE: tudo aqui fora (header/footer) está FORA da árvore do React,
+  então os ícones precisam ser <i data-lucide="..."></i> (HTML puro),
+  nunca <Icon .../> (isso só existe dentro do <script type="text/babel">).
+  O window.lucide.createIcons() no fim do arquivo é quem renderiza estes.
+-->
 <header class="sticky top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-white/70 dark:supports-[backdrop-filter]:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800">
   <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
     <div class="flex items-center gap-2 font-extrabold tracking-tight text-lg sm:text-xl">
         <span class="inline-flex size-8 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-glow animate-pop">
-          <Icon name="parking-square" className="w-5 h-5" />
+          <i data-lucide="parking-square" class="w-5 h-5"></i>
         </span>
       <a href="#inicio" class="hover:opacity-80 transition">Estaciona+</a>
     </div>
@@ -64,8 +70,8 @@
       <a href="#config" class="px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition">Config</a>
     </nav>
     <button id="themeToggle" class="ml-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-sm">
-      <Icon name="sun" className="w-4 h-4 block dark:hidden" />
-      <Icon name="moon" className="w-4 h-4 hidden dark:block" />
+      <i data-lucide="sun" class="w-4 h-4 block dark:hidden"></i>
+      <i data-lucide="moon" class="w-4 h-4 hidden dark:block"></i>
       <span class="hidden sm:inline">Tema</span>
     </button>
   </div>
@@ -75,32 +81,32 @@
 
 <footer class="sticky bottom-0 z-40 md:hidden backdrop-blur supports-[backdrop-filter]:bg-white/70 dark:supports-[backdrop-filter]:bg-slate-900/60 border-t border-slate-200/60 dark:border-slate-800">
   <div class="max-w-6xl mx-auto px-4 py-2 flex items-center justify-around text-xs">
-    <a href="#inicio" class="flex flex-col items-center gap-1 p-2 rounded-xl active:scale-95 transition"><Icon name="home" className="w-5 h-5" />Início</a>
-    <a href="#placas" class="flex flex-col items-center gap-1 p-2 rounded-xl active:scale-95 transition"><Icon name="list-checks" className="w-5 h-5" />Placas</a>
-    <a href="#relatorios" class="flex flex-col items-center gap-1 p-2 rounded-xl active:scale-95 transition"><Icon name="pie-chart" className="w-5 h-5" />Relatórios</a>
-    <a href="#config" class="flex flex-col items-center gap-1 p-2 rounded-xl active:scale-95 transition"><Icon name="settings" className="w-5 h-5" />Config</a>
+    <a href="#inicio" class="flex flex-col items-center gap-1 p-2 rounded-xl active:scale-95 transition"><i data-lucide="home" class="w-5 h-5"></i>Início</a>
+    <a href="#placas" class="flex flex-col items-center gap-1 p-2 rounded-xl active:scale-95 transition"><i data-lucide="list-checks" class="w-5 h-5"></i>Placas</a>
+    <a href="#relatorios" class="flex flex-col items-center gap-1 p-2 rounded-xl active:scale-95 transition"><i data-lucide="pie-chart" class="w-5 h-5"></i>Relatórios</a>
+    <a href="#config" class="flex flex-col items-center gap-1 p-2 rounded-xl active:scale-95 transition"><i data-lucide="settings" class="w-5 h-5"></i>Config</a>
   </div>
 </footer>
 
-  <script type="text/babel">
-    const { useState, useEffect, useMemo, useRef } = React;
+<script type="text/babel">
+  const { useState, useEffect, useMemo, useRef } = React;
 
-    function Icon({name, size = 20, className = ''}){
-      const ref = useRef(null);
-      useEffect(()=>{
-        if(ref.current){
-          ref.current.innerHTML = '';
-          const i = document.createElement('i');
-          i.setAttribute('data-lucide', name);
-          i.className = className;
-          ref.current.appendChild(i);
-          try { window.lucide?.createIcons?.({root: ref.current}); } catch(e){}
-        }
-      }, [name, className]);
-      return <span ref={ref} style={{display: 'inline-flex', width: size, height: size, alignItems: 'center', justifyContent: 'center'}}></span>;
-    }
+  function Icon({name, size = 20, className = ''}){
+    const ref = useRef(null);
+    useEffect(()=>{
+      if(ref.current){
+        ref.current.innerHTML = '';
+        const i = document.createElement('i');
+        i.setAttribute('data-lucide', name);
+        i.className = className;
+        ref.current.appendChild(i);
+        try { window.lucide?.createIcons?.({root: ref.current}); } catch(e){}
+      }
+    }, [name, className]);
+    return <span ref={ref} style={{display: 'inline-flex', width: size, height: size, alignItems: 'center', justifyContent: 'center'}}></span>;
+  }
 
-    const API_BASE = '/Automoveis';
+  const API_BASE = '/Automoveis';
 
   const METODOS_PAGAMENTO = [
     { value: 'dinheiro', label: 'Dinheiro' },
@@ -539,14 +545,22 @@
 
     useEffect(()=>{ loadItems(); }, []);
 
+    // Atualização em tempo real via Server-Sent Events. Se o back-end
+    // ainda não expõe /eventos, o EventSource fica tentando reconectar
+    // sozinho em segundo plano (comportamento padrão do próprio browser)
+    // sem quebrar o resto da tela.
     useEffect(()=>{
       const src = new EventSource('/eventos');
       src.addEventListener('atualizacao', () => {
         loadItems();
       });
-      src.onerror(() => {
-        // EventSource reconecta automaticamente
-      });
+      // ATENÇÃO: onerror é uma propriedade (atribuição), não um método
+      // para "registrar um callback" chamando-o como função. Chamar
+      // `src.onerror(fn)` tenta executar `null` como função e quebra a
+      // aplicação inteira (React desmonta tudo sem um Error Boundary).
+      src.onerror = () => {
+        // EventSource já reconecta automaticamente; nada a fazer aqui.
+      };
       return () => src.close();
     }, []);
 
@@ -820,15 +834,19 @@
     )
   }
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(<App />);
 
-    const themeBtn = document.getElementById('themeToggle');
-    themeBtn?.addEventListener('click', () => {
-      const isDark = document.documentElement.classList.contains('dark');
-      document.documentElement.classList.toggle('dark');
-      localStorage.setItem('theme', isDark ? 'light' : 'dark');
-    });
-  </script>
+  const themeBtn = document.getElementById('themeToggle');
+  themeBtn?.addEventListener('click', () => {
+    const isDark = document.documentElement.classList.contains('dark');
+    document.documentElement.classList.toggle('dark');
+    localStorage.setItem('theme', isDark ? 'light' : 'dark');
+    window?.lucide?.createIcons?.();
+  });
+
+  // Renderiza os ícones do header/footer (que ficam fora do React).
+  window?.lucide?.createIcons?.();
+</script>
 </body>
 </html>
