@@ -16,11 +16,6 @@
   <img src="https://img.shields.io/badge/React-1a1f2e?style=for-the-badge&logo=react&logoColor=38BDF8" />
 </p>
 
-<p align="center">
-  <img src="https://img.shields.io/badge/status-em%20desenvolvimento-F59E0B?style=flat-square" />
-  <img src="https://img.shields.io/badge/nível-portfólio%20júnior-5b9cf6?style=flat-square" />
-</p>
-
 ---
 
 ## 📋 Índice
