@@ -1,16 +1,14 @@
-# Multi-stage build: compila com Maven + JDK 21, executa com JRE 21
-FROM eclipse-temurin:21-jdk AS build
+# Multi-stage build usando imagem oficial do Maven + JDK 21
+FROM maven:3.9.6-eclipse-temurin-21 AS build
 WORKDIR /app
 
 # Copia apenas o pom.xml primeiro para cache de dependências
 COPY pom.xml .
-COPY .mvn .mvn
-COPY mvnw .
-RUN chmod +x mvnw && ./mvnw dependency:go-offline -B
+RUN mvn dependency:go-offline -B -f pom.xml
 
 # Copia o código fonte e compila
 COPY src src
-RUN ./mvnw clean package -DskipTests -B
+RUN mvn clean package -DskipTests -B
 
 # Stage final: imagem enxuta com JRE 21
 FROM eclipse-temurin:21-jre
