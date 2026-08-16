@@ -13,7 +13,7 @@ COPY src src
 RUN ./mvnw clean package -DskipTests -B
 
 # Stage final: imagem enxuta com JRE 21
-FROM eclipse-temurin:21-jre-slim
+FROM eclipse-temurin:21-jre
 WORKDIR /app
 
 # Copia o JAR compilado
