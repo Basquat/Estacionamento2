@@ -2,6 +2,9 @@ package basquat.estacionamento.User;
 
 import jakarta.persistence.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(name = "auto_model")
 public class AutoModel {
@@ -24,6 +27,26 @@ public class AutoModel {
 
     @Column(name = "entrada", nullable = false)
     private Long entrada;
+
+    // Formas de pagamento do veículo (dinheiro, pix, ...). Um veículo pode ser
+    // quitado com várias formas ao mesmo tempo (ex.: R$ 20 dinheiro + R$ 5 pix).
+    //
+    // A coluna auto_id é gravada pela própria entidade Pagamento (setAutoId),
+    // por isso o @JoinColumn aqui é apenas de leitura (insertable/updatable
+    // false) — evita a dupla escrita da FK e o problema de INSERT com auto_id
+    // nulo em coluna NOT NULL. cascade + orphanRemoval fazem os pagamentos
+    // serem salvos/apagados junto com o veículo.
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(
+            name = "auto_id",
+            insertable = false,
+            updatable = false,
+            // Não deixa o Hibernate criar a constraint de FK no banco: a tabela
+            // pagamento pode ter linhas órfãs de testes antigos e a criação da
+            // FK falharia a cada boot. A integridade é garantida no código.
+            foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT)
+    )
+    private List<Pagamento> pagamentos = new ArrayList<>();
 
     public String getId() {
         return id;
@@ -71,5 +94,17 @@ public class AutoModel {
 
     public void setEntrada(Long entrada) {
         this.entrada = entrada;
+    }
+
+    public List<Pagamento> getPagamentos() {
+        return pagamentos;
+    }
+
+    public void setPagamentos(List<Pagamento> pagamentos) {
+        // Mantém a mesma instância de coleção gerenciada pelo Hibernate.
+        this.pagamentos.clear();
+        if (pagamentos != null) {
+            this.pagamentos.addAll(pagamentos);
+        }
     }
 }

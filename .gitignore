@@ -1,6 +1,11 @@
 HELP.md
 memorias.md
 target/
+
+### Segredos / config local (NUNCA versionar) ###
+application-local.properties
+src/main/resources/application-local.properties
+.env
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

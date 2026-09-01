@@ -1,0 +1,7 @@
+# Copie este arquivo para application-local.properties (sem .example) e
+# preencha com as credenciais do seu projeto Supabase.
+# O application-local.properties e ignorado pelo git.
+
+spring.datasource.url=jdbc:postgresql://<host>.pooler.supabase.com:6543/postgres?prepareThreshold=0
+spring.datasource.username=postgres.<ref-do-projeto>
+spring.datasource.password=<sua-senha>

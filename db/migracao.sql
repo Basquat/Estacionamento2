@@ -1,0 +1,50 @@
+-- ===========================================================================
+--  Estacionamento — migração do banco (Supabase / PostgreSQL)
+--  Rode UMA vez no SQL Editor do Supabase.
+--
+--  Contexto: a tabela `pagamento` foi criada na Alteração 3 e acabou com
+--  linhas de teste órfãs (auto_id sem veículo correspondente), feitas pelo
+--  antigo PagamentoController (removido). Isso quebrava a migração automática
+--  do Hibernate no boot. O front-end nunca gravou pagamento "de verdade"
+--  nessa tabela, então limpá-la não perde nada real.
+-- ===========================================================================
+
+BEGIN;
+
+-- 1) Garante a tabela (caso não exista em algum ambiente).
+CREATE TABLE IF NOT EXISTS auto_model (
+    id       VARCHAR(255) PRIMARY KEY,
+    placa    VARCHAR(255) NOT NULL,
+    tipo     VARCHAR(255) NOT NULL,
+    valor    DOUBLE PRECISION NOT NULL,
+    pago     BOOLEAN NOT NULL DEFAULT FALSE,
+    entrada  BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS pagamento (
+    id                VARCHAR(255) PRIMARY KEY,
+    auto_id           VARCHAR(255) NOT NULL,
+    metodo_pagamento  VARCHAR(255) NOT NULL,
+    valor             DOUBLE PRECISION NOT NULL,
+    troco             DOUBLE PRECISION,
+    data              BIGINT
+);
+
+-- 2) Limpa lixo de teste e adiciona a coluna nova.
+DELETE FROM pagamento
+ WHERE auto_id NOT IN (SELECT id FROM auto_model);
+
+ALTER TABLE pagamento ADD COLUMN IF NOT EXISTS troco DOUBLE PRECISION;
+UPDATE pagamento SET troco = 0 WHERE troco IS NULL;
+
+-- 3) Índice para carregar os pagamentos de um veículo rápido.
+CREATE INDEX IF NOT EXISTS idx_pagamento_auto_id ON pagamento(auto_id);
+
+-- 4) (Opcional) Se você usa RLS no Supabase e o backend conecta como service
+--    role, pode ignorar. Caso precise de acesso público:
+-- ALTER TABLE auto_model ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE pagamento  ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY "public auto_model" ON auto_model FOR ALL USING (true) WITH CHECK (true);
+-- CREATE POLICY "public pagamento"  ON pagamento  FOR ALL USING (true) WITH CHECK (true);
+
+COMMIT;

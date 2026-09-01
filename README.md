@@ -1,228 +1,230 @@
-<!-- =========================================================
-     SISTEMA DE GESTÃO DE ESTACIONAMENTO — PROJECT README
-     João Daniel Lisboa · github.com/Basquat
-========================================================= -->
-
 <p align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&height=220&text=🚗%20Estacionamento&fontColor=F59E0B&fontAlign=50&fontAlignY=40&fontSize=46&desc=Sistema%20Fullstack%20de%20Gestão%20de%20Veículos&descAlign=50&descAlignY=65&descSize=16&descColor=94A3B8&color=0:0d0f14,100:1a1f2e" />
+  <img src="https://capsule-render.vercel.app/api?type=waving&height=200&text=Estaciona%2B&fontColor=F59E0B&fontAlign=50&fontAlignY=38&fontSize=52&desc=Gest%C3%A3o%20de%20estacionamento%20%E2%80%94%20Spring%20Boot%20%2B%20React&descAlign=50&descAlignY=60&descSize=16&descColor=94A3B8&color=0:0d0f14,100:1a1f2e" />
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Java%2025-F59E0B?style=for-the-badge&logo=openjdk&logoColor=0d0f14" />
-  <img src="https://img.shields.io/badge/Spring%20Boot-1a1f2e?style=for-the-badge&logo=springboot&logoColor=6EE7B7" />
-  <img src="https://img.shields.io/badge/Spring%20Data%20JPA-1a1f2e?style=for-the-badge&logo=hibernate&logoColor=6EE7B7" />
-  <img src="https://img.shields.io/badge/Supabase-1a1f2e?style=for-the-badge&logo=supabase&logoColor=3ECF8E" />
-  <img src="https://img.shields.io/badge/PostgreSQL-1a1f2e?style=for-the-badge&logo=postgresql&logoColor=5b9cf6" />
-  <img src="https://img.shields.io/badge/React-1a1f2e?style=for-the-badge&logo=react&logoColor=38BDF8" />
+  <img src="https://img.shields.io/badge/Java-21-F59E0B?style=for-the-badge&logo=openjdk&logoColor=0d0f14" />
+  <img src="https://img.shields.io/badge/Spring%20Boot-4.0.3-1a1f2e?style=for-the-badge&logo=springboot&logoColor=6EE7B7" />
+  <img src="https://img.shields.io/badge/PostgreSQL%20(Supabase)-1a1f2e?style=for-the-badge&logo=postgresql&logoColor=5b9cf6" />
+  <img src="https://img.shields.io/badge/React%2018%20(CDN)-1a1f2e?style=for-the-badge&logo=react&logoColor=38BDF8" />
+  <img src="https://img.shields.io/badge/Docker-1a1f2e?style=for-the-badge&logo=docker&logoColor=2496ED" />
 </p>
 
 ---
 
-## 📋 Índice
+## Visão geral
 
-- [Visão Geral](#-visão-geral)
-- [Arquitetura](#-arquitetura)
-- [Tecnologias](#-tecnologias)
-- [Endpoints da API](#-endpoints-da-api)
-- [Estrutura do Projeto](#-estrutura-do-projeto)
-- [Persistência de Dados](#-persistência-de-dados)
-- [Como Executar](#-como-executar)
-- [Valor Técnico](#-valor-técnico)
-- [Autor](#-autor)
+Aplicação **fullstack de página única** para controlar entrada, pagamento e saída de veículos
+num estacionamento. Backend em **Spring Boot** expõe uma API REST e **serve o próprio
+frontend** (React sem build) — é um único artefato, um único deploy.
 
----
-
-## 🧭 Visão Geral
-
-O **Sistema de Gestão de Estacionamento** é uma aplicação fullstack desenvolvida para o controle de entrada, permanência e saída de veículos, com foco em organização de domínio, integridade transacional e boas práticas de engenharia de software.
-
-Backend desenvolvido **integralmente à mão** com Java e Spring Boot — Model, Controller e Repository com lógica de negócios própria. O frontend **(Estaciona+)** foi entregue com auxílio de IA como acelerador de produção, sem abrir mão do entendimento de cada decisão técnica tomada.
-
-> **Sobre o frontend:** meu foco principal era o backend. Utilizei IA para acelerar a entrega do React + Tailwind, reforçando conceitos ao longo do processo. A IA não fez o projeto — ela amplificou a velocidade de quem já sabia o que estava construindo.
+- Cadastro de veículos (carro/moto) com placa, valor e horário de entrada.
+- **Pagamento dividido**: um veículo pode ser quitado em várias formas ao mesmo tempo
+  (ex.: R$ 20 em dinheiro + R$ 5 no Pix).
+- **Troco**: quando o cliente paga em dinheiro acima do valor, o troco devolvido fica
+  registrado — o caixa não "sobra" no fechamento.
+- **Edição livre**, inclusive de veículo já pago (correções acontecem).
+- **Tempo real**: qualquer alteração aparece na hora em todos os dispositivos conectados
+  (Server-Sent Events, sem polling).
+- Resumo e Relatórios com totais por tipo, status e método de pagamento.
+- Tema claro/escuro e export/import de backup em JSON.
 
 ---
 
-## 🏗️ Arquitetura
-
-Arquitetura **multicamadas** com separação clara de responsabilidades:
+## Arquitetura
 
 ```
-┌──────────────────────────────────────────┐
-│           FRONTEND (Estaciona+)          │
-│       React + Tailwind CSS — sem build   │
-└──────────────────┬───────────────────────┘
-                   │  HTTP / REST
-┌──────────────────▼───────────────────────┐
-│           CONTROLLER LAYER               │
-│     Spring MVC · Endpoints REST          │
-└──────────────────┬───────────────────────┘
-                   │
-┌──────────────────▼───────────────────────┐
-│           REPOSITORY LAYER               │
-│     Spring Data JPA · Hibernate ORM      │
-└──────────────────┬───────────────────────┘
-                   │
-┌──────────────────▼───────────────────────┐
-│       SUPABASE · PostgreSQL (nuvem)      │
-└──────────────────────────────────────────┘
+┌───────────────────────────────────────────────┐
+│  Frontend  (src/main/resources/static/index.html)
+│  React 18 + Tailwind via CDN — servido pelo Spring
+└───────────────┬───────────────────────────────┘
+                │  REST + SSE  (mesma origem, sem CORS em produção)
+┌───────────────▼───────────────────────────────┐
+│  Controller   AutoController · EventoController · HealthController
+│               ApiExceptionHandler (erros -> JSON {message})
+├───────────────────────────────────────────────┤
+│  Service      AutoService (regras) · EventoService (broadcast SSE)
+├───────────────────────────────────────────────┤
+│  Repository   AutoRepository  (Spring Data JPA / Hibernate)
+├───────────────────────────────────────────────┤
+│  PostgreSQL   Supabase — pooler na porta 6543
+└───────────────────────────────────────────────┘
 ```
 
 | Camada | Responsabilidade |
-|--------|-----------------|
-| **Controller** | Exposição dos endpoints REST via Spring MVC |
-| **Model** | Entidades de domínio mapeadas com Hibernate + Lombok |
-| **Repository** | Persistência e consultas via Spring Data JPA |
-| **Frontend** | Interface React consumindo a API de forma desacoplada |
+|--------|------------------|
+| **Controller** | Traduz HTTP ↔ chamadas de serviço. Nenhuma regra de negócio. |
+| **Service** | Validação (placa duplicada, obrigatórios), "não encontrado", sincronização dos pagamentos, disparo dos eventos. |
+| **Repository** | Persistência via Spring Data JPA. |
+| **Model** | `AutoModel` (veículo) e `Pagamento` — relação `@OneToMany` com cascade; salvar/editar/apagar o veículo cuida dos pagamentos junto. |
+| **EventoService** | Lista thread-safe de `SseEmitter`; `notificar()` faz broadcast após cada mutação. |
 
 ---
 
-## 🛠️ Tecnologias
+## Modelo de dados
 
-<div align="center">
+**`auto_model`**
 
-<img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/java/java-original.svg" height="40" alt="Java" title="Java 25"/>
-&nbsp;&nbsp;
-<img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/spring/spring-original.svg" height="40" alt="Spring Boot" title="Spring Boot"/>
-&nbsp;&nbsp;
-<img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/hibernate/hibernate-original.svg" height="40" alt="Hibernate" title="Hibernate"/>
-&nbsp;&nbsp;
-<img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/postgresql/postgresql-original.svg" height="40" alt="PostgreSQL" title="PostgreSQL"/>
-&nbsp;&nbsp;
-<img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg" height="40" alt="React" title="React"/>
-&nbsp;&nbsp;
-<img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/git/git-original.svg" height="40" alt="Git" title="Git"/>
+| Campo | Tipo | Observação |
+|-------|------|-----------|
+| `id` | `varchar` | UUID gerado no cliente |
+| `placa` | `varchar` | única (case-insensitive na aplicação) |
+| `tipo` | `varchar` | `carro` \| `moto` |
+| `valor` | `double` | valor total a pagar |
+| `pago` | `boolean` | |
+| `entrada` | `bigint` | epoch millis |
 
-</div>
+**`pagamento`** (0..N por veículo)
+
+| Campo | Tipo | Observação |
+|-------|------|-----------|
+| `id` | `varchar` | UUID |
+| `auto_id` | `varchar` | FK lógica → `auto_model.id` (constraint gerida no código) |
+| `metodo_pagamento` | `varchar` | `dinheiro` \| `pix` (JSON: `metodo`) |
+| `valor` | `double` | parte do total quitada nessa forma |
+| `troco` | `double` | troco devolvido (só dinheiro); **não** entra na soma |
+| `data` | `bigint` | epoch millis |
+
+> A soma dos `valor` dos pagamentos precisa ser igual ao `valor` do veículo para
+> confirmar o pagamento. O `troco` é registro à parte.
 
 ---
 
-## 🔌 Endpoints da API
+## API
 
-**Base URL:** `http://localhost:8080`
+**Base:** `/` (mesma origem do frontend). Local: `http://localhost:8080`.
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| `GET` | `/Automoveis` | Lista todos os veículos |
-| `GET` | `/Automoveis/{id}` | Busca veículo por ID |
-| `POST` | `/Automoveis/Add` | Cadastra novo veículo |
-| `PUT` | `/Automoveis/{id}` | Atualiza veículo existente |
-| `DELETE` | `/Automoveis/{id}` | Remove veículo |
+| `GET` | `/Automoveis` | Lista todos os veículos (com seus pagamentos) |
+| `GET` | `/Automoveis/{id}` | Um veículo |
+| `POST` | `/Automoveis/Add` | Cadastra veículo |
+| `PUT` | `/Automoveis/{id}` | Atualiza veículo + regrava os pagamentos |
+| `DELETE` | `/Automoveis/{id}` | Remove veículo (e seus pagamentos) → `204` |
+| `GET` | `/eventos` | Stream SSE (`text/event-stream`); evento `atualizacao` a cada mudança |
+| `GET` | `/health` | `{"status":"ok","timestamp":<epoch>}` — para o keep-alive do Render |
 
-**Exemplo de payload — `POST /Automoveis/Add`**
+Erros vêm como JSON: `{"status":404,"message":"Automóvel não encontrado"}`
+(`404` não encontrado · `409` placa duplicada · `400` demais).
+
+**Exemplo — `POST /Automoveis/Add`**
 
 ```json
 {
+  "id": "0e0f...uuid",
   "placa": "ABC-1234",
-  "modelo": "Civic",
-  "cor": "Prata",
-  "proprietario": "João Daniel"
+  "tipo": "carro",
+  "valor": 25.0,
+  "pago": true,
+  "entrada": 1725200000000,
+  "pagamentos": [
+    { "metodo": "dinheiro", "valor": 20.0, "troco": 5.0 },
+    { "metodo": "pix",      "valor": 5.0 }
+  ]
 }
 ```
 
 ---
 
-## 📂 Estrutura do Projeto
+## Configuração
+
+Nenhuma credencial fica no repositório. A aplicação lê, nesta ordem:
+
+1. Variáveis de ambiente: `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`.
+2. `src/main/resources/application-local.properties` (ignorado pelo git) — para rodar local.
+
+```bash
+cp src/main/resources/application-local.properties.example \
+   src/main/resources/application-local.properties
+# edite com as credenciais do pooler do Supabase (Project Settings → Database)
+```
+
+`DATABASE_URL` tem o formato
+`jdbc:postgresql://<host>.pooler.supabase.com:6543/postgres?prepareThreshold=0`.
+
+---
+
+## Rodando local
+
+**Pré-requisitos:** JDK 21 · o wrapper do Maven já vem no repo.
+
+```bash
+# 1. configure o application-local.properties (acima)
+# 2. rode a migração do banco uma vez — db/migracao.sql — no SQL Editor do Supabase
+# 3. suba a aplicação
+./mvnw spring-boot:run
+```
+
+Abra **http://localhost:8080** — frontend e API na mesma porta.
+
+O `spring.jpa.hibernate.ddl-auto=update` cria/ajusta as tabelas sozinho; `db/migracao.sql`
+só limpa dados de teste antigos da tabela `pagamento` e garante a coluna `troco`.
+
+---
+
+## Deploy (Render + Docker)
+
+`Dockerfile` multi-stage: build com `maven:3.9-eclipse-temurin-21`, runtime em
+`eclipse-temurin:21-jre`.
+
+1. **New → Web Service**, conecte o repositório, runtime **Docker** (Build/Start Command vazios).
+2. **Environment**:
+   - `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`
+   - `SPRING_PROFILES_ACTIVE=prod`
+3. **Settings → Health Check Path:** `/health`.
+4. Plano free dorme após 15 min ocioso — aponte um [UptimeRobot](https://uptimerobot.com)
+   para `GET /health` a cada 5 min.
+
+```bash
+# testar a imagem local
+docker build -t estacionamento .
+docker run -p 8080:8080 \
+  -e DATABASE_URL=... -e DATABASE_USERNAME=... -e DATABASE_PASSWORD=... \
+  estacionamento
+```
+
+---
+
+## Estrutura
 
 ```
 Estacionamento/
-├── src/
-│   └── main/
-│       ├── java/
-│       │   └── basquat.estacionamento/
-│       │       ├── User/
-│       │       │   ├── AutoController.java   ← endpoints REST
-│       │       │   ├── AutoModel.java        ← entidade de domínio
-│       │       │   └── AutoRepository.java   ← persistência JPA
-│       │       └── EstacionamentoApplication.java
-│       └── resources/
-│           └── application.properties        ← configuração Supabase
-├── frontend/
-│   └── index.html                            ← React + Tailwind (sem build)
+├── db/
+│   └── migracao.sql                     migração/limpeza do Supabase (rodar 1x)
+├── src/main/
+│   ├── java/basquat/estacionamento/
+│   │   ├── EstacionamentoApplication.java
+│   │   └── User/
+│   │       ├── AutoController.java       endpoints /Automoveis
+│   │       ├── AutoService.java          regras de negócio
+│   │       ├── AutoRepository.java
+│   │       ├── AutoModel.java            veículo (+ @OneToMany pagamentos)
+│   │       ├── Pagamento.java            forma de pagamento (+ troco)
+│   │       ├── EventoController.java     GET /eventos (SSE)
+│   │       ├── EventoService.java        broadcast das atualizações
+│   │       ├── HealthController.java     GET /health
+│   │       ├── ApiExceptionHandler.java  exceções -> JSON {message}
+│   │       ├── RecursoNaoEncontradoException.java   (404)
+│   │       └── RegraNegocioException.java           (409)
+│   └── resources/
+│       ├── application.properties               só placeholders de env
+│       ├── application-local.properties.example
+│       └── static/index.html                    frontend React (sem build)
+├── Dockerfile
 └── pom.xml
 ```
 
 ---
 
-## 💾 Persistência de Dados
+## Segurança
 
-Persistência em nuvem via **Supabase**, utilizando PostgreSQL e Hibernate como provedor ORM.
-
-```
-Aplicação Spring Boot
-        │
-        │  JDBC · driver PostgreSQL
-        ▼
-Supabase Pooler  ← porta 6543
-        │
-        ▼
-PostgreSQL (nuvem)
-```
-
-- ✅ Dados persistidos em nuvem — acessíveis de qualquer ambiente
-- ✅ Mapeamento objeto-relacional via Hibernate
-- ✅ Operações CRUD totalmente transacionais
-- ✅ Zero infraestrutura local de banco de dados necessária
+A senha do banco esteve versionada em commits anteriores. **Ela deve ser trocada**
+(Supabase → Project Settings → Database → *Reset database password*) e configurada
+apenas via variável de ambiente ou `application-local.properties`.
 
 ---
 
-## 🚀 Como Executar
+## Autor
 
-**Pré-requisitos:** Java 25+ · Maven 3.8+ · Conta no [Supabase](https://supabase.com)
-
-**1. Clone o repositório**
-```bash
-git clone https://github.com/Basquat/Estacionamento.git
-cd Estacionamento
-```
-
-**2. Configure o `application.properties`**
-```properties
-spring.datasource.url=jdbc:postgresql://<host>:6543/postgres?prepareThreshold=0
-spring.datasource.username=<usuario>
-spring.datasource.password=<senha>
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
-```
-
-> 💡 Credenciais em **Project Settings → Database → Connection string (pooler)** no painel do Supabase.
-
-**3. Execute**
-```bash
-./mvnw spring-boot:run
-```
-
-**4. Abra o frontend**
-
-Abra `frontend/index.html` diretamente no navegador — sem build necessário.
-
----
-
-## 📈 Valor Técnico
-
-- ✅ API REST completa com todos os verbos HTTP (GET, POST, PUT, DELETE)
-- ✅ Arquitetura multicamadas com separação clara de responsabilidades
-- ✅ Persistência em nuvem real com PostgreSQL via Supabase
-- ✅ Frontend desacoplado consumindo a API REST diretamente
-- ✅ Lombok para código limpo e sem boilerplate desnecessário
-- ✅ Base sólida para evolução futura: Service Layer, autenticação, testes unitários
-
----
-
-## 👨‍💻 Autor
-
-<p align="center">
-  <strong>João Daniel de Cerqueira Lisboa</strong><br/>
-  <em>Engenheiro de Software Backend em formação</em>
-  <br/><br/>
-  <a href="https://github.com/Basquat">
-    <img src="https://img.shields.io/badge/GitHub-Basquat-F59E0B?style=for-the-badge&logo=github&logoColor=0d0f14" />
-  </a>
-  &nbsp;
-  <a href="https://www.linkedin.com/in/jo%C3%A3o-daniel-de-cerqueira-lisboa-0184a7356">
-    <img src="https://img.shields.io/badge/LinkedIn-João%20Daniel-1a1f2e?style=for-the-badge&logo=linkedin&logoColor=F59E0B" />
-  </a>
-</p>
-
-<p align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&section=footer&height=120&color=0:0d0f14,100:1a1f2e&fontColor=F59E0B&fontSize=14&text=Backend%20se%20aprende%20na%20prática%20—%20um%20commit%20de%20cada%20vez.&fontAlign=50&fontAlignY=65" />
-</p>
+**João Daniel de Cerqueira Lisboa** · [GitHub @Basquat](https://github.com/Basquat) ·
+[LinkedIn](https://www.linkedin.com/in/jo%C3%A3o-daniel-de-cerqueira-lisboa-0184a7356)

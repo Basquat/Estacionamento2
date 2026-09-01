@@ -124,22 +124,42 @@
   }
 
   function metodoLabel(metodo){
+    if(metodo === 'nao_informado') return 'Não informado';
     return METODOS_PAGAMENTO.find(m => m.value === metodo)?.label || metodo;
   }
 
+  // Soma só a parte que quita a conta do veículo (o troco NÃO entra aqui).
   function somaPagamentos(pagamentos){
     return (pagamentos || []).reduce((s, p) => s + (Number(p.valor) || 0), 0);
+  }
+
+  // Total de troco devolvido — só informativo, para o fechamento de caixa.
+  function somaTroco(pagamentos){
+    return (pagamentos || []).reduce((s, p) => s + (Number(p.troco) || 0), 0);
   }
 
   // Compatibiliza itens vindos do back-end antigo (campo único
   // `metodoPagamento`) com o novo formato (`pagamentos: [...]`).
   function migrateItem(item){
+    let pagamentos;
     if(Array.isArray(item.pagamentos)){
-      return item;
+      pagamentos = item.pagamentos.map(p => ({
+        id: p.id || uuid(),
+        metodo: p.metodo || p.metodoPagamento || 'nao_informado',
+        valor: Number(p.valor) || 0,
+        troco: Number(p.troco) || 0,
+      }));
+    } else if(item.pago && item.metodoPagamento){
+      pagamentos = [{ id: uuid(), metodo: item.metodoPagamento, valor: Number(item.valor) || 0, troco: 0 }];
+    } else {
+      pagamentos = [];
     }
-    const pagamentos = (item.pago && item.metodoPagamento)
-            ? [{ id: uuid(), metodo: item.metodoPagamento, valor: item.valor }]
-            : [];
+    // Veículo marcado como pago no back-end mas sem detalhamento de método
+    // (dados antigos): joga o valor num balde "não informado" para não sumir
+    // do resumo — basta reabrir o veículo e escolher a forma correta.
+    if(item.pago && pagamentos.length === 0){
+      pagamentos = [{ id: uuid(), metodo: 'nao_informado', valor: Number(item.valor) || 0, troco: 0 }];
+    }
     const { metodoPagamento, ...rest } = item;
     return { ...rest, pagamentos };
   }
@@ -228,14 +248,22 @@
     const restante = Math.round((Number(valorTotal||0) - totalAlocado) * 100) / 100;
     const bateCerto = Math.abs(restante) < 0.01;
 
+    const totalTroco = somaTroco(pagamentos);
+
     function addLinha(){
       setPagamentos(prev => [
         ...prev,
-        { id: uuid(), metodo: 'dinheiro', valor: restante > 0 ? restante : '' }
+        { id: uuid(), metodo: 'dinheiro', valor: restante > 0 ? restante : '', troco: '' }
       ]);
     }
     function updateLinha(id, field, value){
-      setPagamentos(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
+      setPagamentos(prev => prev.map(p => {
+        if(p.id !== id) return p;
+        const next = { ...p, [field]: value };
+        // Troco só faz sentido em dinheiro — zera ao trocar de método.
+        if(field === 'metodo' && value !== 'dinheiro') next.troco = '';
+        return next;
+      }));
     }
     function removeLinha(id){
       setPagamentos(prev => prev.filter(p => p.id !== id));
@@ -252,9 +280,20 @@
                                 className="flex-1 min-w-[110px] px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
                           {METODOS_PAGAMENTO.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                         </select>
-                        <input type="number" step="0.01" min="0" placeholder="0,00" value={p.valor}
-                               onChange={e=>updateLinha(p.id,'valor', e.target.value.replace(',','.'))}
-                               className="flex-1 min-w-[90px] px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm outline-none focus:ring-4 focus:ring-blue-500/20"/>
+                        <label className="flex items-center gap-1 flex-1 min-w-[90px]">
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400">R$</span>
+                          <input type="number" step="0.01" min="0" placeholder="0,00" value={p.valor}
+                                 onChange={e=>updateLinha(p.id,'valor', e.target.value.replace(',','.'))}
+                                 className="w-full px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm outline-none focus:ring-4 focus:ring-blue-500/20"/>
+                        </label>
+                        {p.metodo === 'dinheiro' && (
+                                <label className="flex items-center gap-1 flex-1 min-w-[90px]" title="Troco devolvido ao cliente (dinheiro pago a mais)">
+                                  <span className="text-[11px] text-slate-500 dark:text-slate-400">Troco</span>
+                                  <input type="number" step="0.01" min="0" placeholder="0,00" value={p.troco ?? ''}
+                                         onChange={e=>updateLinha(p.id,'troco', e.target.value.replace(',','.'))}
+                                         className="w-full px-2 py-2 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-white dark:bg-slate-900 text-sm outline-none focus:ring-4 focus:ring-amber-500/20"/>
+                                </label>
+                        )}
                         <button type="button" onClick={()=>removeLinha(p.id)} title="Remover"
                                 className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600">
                           <Icon name="x" className="w-4 h-4" />
@@ -266,11 +305,18 @@
                         className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
                   <Icon name="plus" className="w-3.5 h-3.5" /> Adicionar forma de pagamento
                 </button>
-                <span className={'text-xs font-semibold px-2 py-1 rounded-lg '+(bateCerto ? 'text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-900/30' : 'text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-900/30')}>
-              {bateCerto
-                      ? 'Total conferido ✓'
-                      : (restante > 0 ? `Falta ${formatBRL(restante)}` : `Excedeu ${formatBRL(-restante)}`)}
-            </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {totalTroco > 0 && (
+                          <span className="text-xs font-semibold px-2 py-1 rounded-lg text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-900/30">
+                            Troco {formatBRL(totalTroco)}
+                          </span>
+                  )}
+                  <span className={'text-xs font-semibold px-2 py-1 rounded-lg '+(bateCerto ? 'text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-900/30' : 'text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-900/30')}>
+                {bateCerto
+                        ? 'Total conferido ✓'
+                        : (restante > 0 ? `Falta ${formatBRL(restante)}` : `Excedeu ${formatBRL(-restante)}`)}
+              </span>
+                </div>
               </div>
             </div>
     )
@@ -287,7 +333,7 @@
     function togglePago(checked){
       setPago(checked);
       if(checked && pagamentos.length === 0){
-        setPagamentos([{ id: uuid(), metodo: 'dinheiro', valor: valor || '' }]);
+        setPagamentos([{ id: uuid(), metodo: 'dinheiro', valor: valor || '', troco: '' }]);
       }
       if(!checked){
         setPagamentos([]);
@@ -310,7 +356,12 @@
           alert('A soma dos pagamentos (' + formatBRL(total) + ') precisa ser igual ao valor total (' + formatBRL(valorNum) + ').');
           return;
         }
-        pagamentosFinal = pagamentos.map(p => ({ id: p.id || uuid(), metodo: p.metodo, valor: Number(p.valor) || 0 }));
+        pagamentosFinal = pagamentos.map(p => ({
+          id: p.id || uuid(),
+          metodo: p.metodo,
+          valor: Number(p.valor) || 0,
+          troco: p.metodo === 'dinheiro' ? (Number(p.troco) || 0) : 0,
+        }));
       }
 
       const novo = {
@@ -376,63 +427,78 @@
     )
   }
 
-  function Row({item, onSetPagamentos, onUpdateValor, onDelete}){
-    const [editingValor, setEditingValor] = useState(false);
-    const [editingPagamento, setEditingPagamento] = useState(false);
+  function Row({item, onUpdate, onDelete}){
+    const [editing, setEditing] = useState(false);
+    const [tempPlaca, setTempPlaca] = useState(item.placa);
+    const [tempTipo, setTempTipo] = useState(item.tipo);
     const [tempValor, setTempValor] = useState(item.valor);
-    const [tempPagamentos, setTempPagamentos] = useState(
-            item.pagamentos && item.pagamentos.length ? item.pagamentos : [{ id: uuid(), metodo: 'dinheiro', valor: item.valor }]
-    );
+    const [tempPago, setTempPago] = useState(item.pago);
+    const [tempPagamentos, setTempPagamentos] = useState([]);
     const [saving, setSaving] = useState(false);
 
-    // REGRA: depois que o pagamento é confirmado, o veículo fica travado —
-    // não é mais possível editar valor nem forma de pagamento, só excluir
-    // o registro caso tenha sido um engano. Evita reabrir um recibo já fechado.
-    const travado = item.pago;
+    const trocoLinha = somaTroco(item.pagamentos);
 
-    // Se outro dispositivo confirmar o pagamento deste MESMO veículo
-    // enquanto você está com uma edição aberta aqui, cancela a edição e
-    // avisa — evita clicar "Salvar" achando que vai funcionar e não
-    // acontecer nada.
-    useEffect(()=>{
-      if(item.pago && (editingValor || editingPagamento)){
-        setEditingValor(false);
-        setEditingPagamento(false);
-        alert('A placa ' + item.placa + ' acabou de ser paga em outro dispositivo. A edição foi cancelada.');
+    // Abre o editor sempre a partir do estado atual do veículo. Um veículo já
+    // pago PODE ser reeditado (valor, método, troco) — podem ocorrer correções.
+    function abrirEditor(){
+      setTempPlaca(item.placa);
+      setTempTipo(item.tipo);
+      setTempValor(item.valor);
+      setTempPago(item.pago);
+      setTempPagamentos(
+              (item.pagamentos && item.pagamentos.length)
+                      ? item.pagamentos.map(p => ({
+                        id: p.id || uuid(),
+                        metodo: p.metodo === 'nao_informado' ? 'dinheiro' : p.metodo,
+                        valor: p.valor,
+                        troco: p.troco || '',
+                      }))
+                      : [{ id: uuid(), metodo: 'dinheiro', valor: item.valor, troco: '' }]
+      );
+      setEditing(true);
+    }
+
+    function togglePago(checked){
+      setTempPago(checked);
+      if(checked && tempPagamentos.length === 0){
+        setTempPagamentos([{ id: uuid(), metodo: 'dinheiro', valor: tempValor || '', troco: '' }]);
       }
-    }, [item.pago]);
-
-    async function saveValor(){
-      if(saving) return;
-      setSaving(true);
-      try{
-        await onUpdateValor(item.id, Number(tempValor)||0);
-        setEditingValor(false);
-      } finally {
-        setSaving(false);
+      if(!checked){
+        setTempPagamentos([]);
       }
     }
 
-    function openPagamentoEditor(){
-      setTempPagamentos([{ id: uuid(), metodo: 'dinheiro', valor: item.valor }]);
-      setEditingPagamento(true);
-    }
-
-    async function confirmarPagamento(){
+    async function salvar(){
       if(saving) return;
-      const total = somaPagamentos(tempPagamentos);
-      if(tempPagamentos.length === 0){
-        alert('Adicione ao menos uma forma de pagamento.');
-        return;
-      }
-      if(Math.abs(total - item.valor) > 0.01){
-        alert('A soma dos pagamentos (' + formatBRL(total) + ') precisa ser igual ao valor total (' + formatBRL(item.valor) + ').');
-        return;
+      const valorNum = Number(tempValor) || 0;
+      let pagamentosFinal = [];
+      if(tempPago){
+        if(tempPagamentos.length === 0){
+          alert('Adicione ao menos uma forma de pagamento.');
+          return;
+        }
+        const soma = somaPagamentos(tempPagamentos);
+        if(Math.abs(soma - valorNum) > 0.01){
+          alert('A soma dos pagamentos (' + formatBRL(soma) + ') precisa ser igual ao valor total (' + formatBRL(valorNum) + ').');
+          return;
+        }
+        pagamentosFinal = tempPagamentos.map(p => ({
+          id: p.id || uuid(),
+          metodo: p.metodo,
+          valor: Number(p.valor) || 0,
+          troco: p.metodo === 'dinheiro' ? (Number(p.troco) || 0) : 0,
+        }));
       }
       setSaving(true);
       try{
-        await onSetPagamentos(item.id, tempPagamentos.map(p => ({ id: p.id || uuid(), metodo: p.metodo, valor: Number(p.valor) || 0 })));
-        setEditingPagamento(false);
+        await onUpdate(item.id, {
+          placa: (tempPlaca || '').trim().toUpperCase(),
+          tipo: tempTipo,
+          valor: valorNum,
+          pago: tempPago,
+          pagamentos: pagamentosFinal,
+        });
+        setEditing(false);
       } finally {
         setSaving(false);
       }
@@ -449,43 +515,62 @@
                   <div className="text-xs text-slate-500 dark:text-slate-400">{new Date(item.entrada).toLocaleString('pt-BR')}</div>
                 </div>
 
-                {!editingValor ? (
-                        <div className="text-right ml-auto sm:ml-0">
-                          <div className={"text-sm font-medium "+(item.pago?'text-emerald-600 dark:text-emerald-400':'text-amber-600 dark:text-amber-400')}>
-                            {item.pago
-                                    ? ('Pago (' + (item.pagamentos||[]).map(p => metodoLabel(p.metodo) + ' ' + formatBRL(p.valor)).join(' + ') + ')')
-                                    : 'Pendente'}
-                          </div>
-                          <div className="text-lg font-semibold">{formatBRL(item.valor)}</div>
-                        </div>
-                ) : (
-                        <div className="flex items-center gap-2 ml-auto sm:ml-0">
-                          <input type="number" step="0.01" min="0" value={tempValor} onChange={e=>setTempValor(e.target.value)} className="w-24 sm:w-28 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900" />
-                          <button onClick={saveValor} disabled={saving} className="px-3 py-2 rounded-xl bg-emerald-600 text-white hover:brightness-110 disabled:opacity-50">Salvar</button>
-                        </div>
-                )}
+                <div className="text-right ml-auto sm:ml-0">
+                  <div className={"text-sm font-medium "+(item.pago?'text-emerald-600 dark:text-emerald-400':'text-amber-600 dark:text-amber-400')}>
+                    {item.pago
+                            ? ('Pago (' + (item.pagamentos||[]).map(p => metodoLabel(p.metodo) + ' ' + formatBRL(p.valor)).join(' + ')
+                                    + (trocoLinha > 0 ? ' · troco ' + formatBRL(trocoLinha) : '') + ')')
+                            : 'Pendente'}
+                  </div>
+                  <div className="text-lg font-semibold">{formatBRL(item.valor)}</div>
+                </div>
 
                 <div className="flex items-center gap-1">
-                  {!travado && (
-                          <button onClick={()=> editingPagamento ? setEditingPagamento(false) : openPagamentoEditor()} title="Confirmar pagamento" className="p-2.5 sm:p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition"><Icon name="badge-check" className="w-5 h-5" /></button>
-                  )}
-                  {!travado && (
-                          <button onClick={()=>setEditingValor(v=>!v)} title="Editar valor" className="p-2.5 sm:p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition"><Icon name="pencil" className="w-5 h-5" /></button>
-                  )}
-                  {travado && (
-                          <span title="Pagamento confirmado — não pode ser alterado" className="p-2.5 sm:p-2 rounded-xl text-emerald-600 dark:text-emerald-400"><Icon name="lock" className="w-5 h-5" /></span>
-                  )}
+                  <button onClick={()=> editing ? setEditing(false) : abrirEditor()} title="Editar veículo / pagamento"
+                          className={'p-2.5 sm:p-2 rounded-xl transition '+(editing ? 'bg-blue-600 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800')}>
+                    <Icon name={item.pago ? 'pencil' : 'badge-check'} className="w-5 h-5" />
+                  </button>
                   <button onClick={()=>onDelete(item.id)} title="Remover" className="p-2.5 sm:p-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600"><Icon name="trash-2" className="w-5 h-5" /></button>
                 </div>
               </div>
 
-              {editingPagamento && !travado && (
-                      <div className="mt-3 grid gap-2">
-                        <PaymentSplitEditor valorTotal={item.valor} pagamentos={tempPagamentos} setPagamentos={setTempPagamentos} />
+              {editing && (
+                      <div className="mt-3 grid gap-3 border-t border-slate-200 dark:border-slate-800 pt-3 animate-fadeIn">
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          <div>
+                            <label className="text-xs text-slate-500 dark:text-slate-400">Placa</label>
+                            <input value={tempPlaca} onChange={e=>setTempPlaca(e.target.value)}
+                                   className="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:ring-4 focus:ring-blue-500/20"/>
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-500 dark:text-slate-400">Tipo</label>
+                            <select value={tempTipo} onChange={e=>setTempTipo(e.target.value)}
+                                    className="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:ring-4 focus:ring-blue-500/20">
+                              <option value="carro">Carro</option>
+                              <option value="moto">Moto</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-500 dark:text-slate-400">Valor (R$)</label>
+                            <input type="number" step="0.01" min="0" value={tempValor}
+                                   onChange={e=>setTempValor(e.target.value.replace(',','.'))}
+                                   className="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 outline-none focus:ring-4 focus:ring-blue-500/20"/>
+                          </div>
+                        </div>
+
+                        <label className="flex items-center gap-2 text-sm">
+                          <input type="checkbox" checked={tempPago} onChange={e=>togglePago(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-blue-600"/>
+                          Pagamento confirmado
+                        </label>
+
+                        {tempPago && (
+                                <PaymentSplitEditor valorTotal={Number(tempValor)||0} pagamentos={tempPagamentos} setPagamentos={setTempPagamentos} />
+                        )}
+
                         <div className="flex items-center justify-end gap-2 flex-wrap">
-                          <button type="button" onClick={()=>setEditingPagamento(false)} className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800">Cancelar</button>
-                          <button type="button" onClick={confirmarPagamento} disabled={saving} className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white hover:brightness-110 disabled:opacity-50">
-                            {saving ? 'Confirmando...' : 'Confirmar pagamento'}
+                          <button type="button" onClick={()=>setEditing(false)} className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800">Cancelar</button>
+                          <button type="button" onClick={salvar} disabled={saving} className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white hover:brightness-110 disabled:opacity-50">
+                            {saving ? 'Salvando...' : 'Salvar'}
                           </button>
                         </div>
                       </div>
@@ -624,42 +709,30 @@
       }
     }
 
-    // Confirma o pagamento (possivelmente dividido em várias formas).
-    // Depois de confirmado o item fica travado — ver `travado` em Row.
-    async function setPagamentos(id, pagamentos){
+    // Edição unificada do veículo: placa, tipo, valor, status de pagamento e
+    // formas de pagamento (com troco). Funciona também para veículos já pagos —
+    // não há mais trava; correções acontecem.
+    async function updateItem(id, patch){
       const item = items.find(i => i.id === id);
       if (!item) return;
-      const updated = { ...item, pago: true, pagamentos };
-      try {
-        const res = await fetch(API_BASE + '/' + id, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updated)
-        });
-        if (!res.ok) throw new Error(await parseErro(res, 'Erro ao confirmar pagamento'));
-        const saved = await res.json();
-        setItems(prev => prev.map(i => i.id === id ? migrateItem(saved) : i));
-      } catch (err) {
-        alert(err.message || 'Erro ao confirmar pagamento');
+      const placaNova = (patch.placa || '').trim().toUpperCase();
+      if (placaNova && placaNova !== (item.placa||'').trim().toUpperCase()
+              && items.some(i => i.id !== id && (i.placa||'').trim().toUpperCase() === placaNova)){
+        alert('A placa ' + placaNova + ' já está cadastrada.');
+        return;
       }
-    }
-
-    async function updateValor(id, valor){
-      const item = items.find(i => i.id === id);
-      if (!item) return;
-      if (item.pago) return; // travado após pago
-      const updated = { ...item, valor };
+      const updated = { ...item, ...patch };
       try {
         const res = await fetch(API_BASE + '/' + id, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updated)
         });
-        if (!res.ok) throw new Error(await parseErro(res, 'Erro ao atualizar valor'));
+        if (!res.ok) throw new Error(await parseErro(res, 'Erro ao salvar'));
         const saved = await res.json();
         setItems(prev => prev.map(i => i.id === id ? migrateItem(saved) : i));
       } catch (err) {
-        alert(err.message || 'Erro ao atualizar valor');
+        alert(err.message || 'Erro ao salvar');
       }
     }
 
@@ -702,14 +775,30 @@
               .length;
     }
 
+    // Troco devolvido no período (só dinheiro tem troco). Informativo para o
+    // fechamento de caixa: dinheiro em caixa = arrecadado em dinheiro (o troco
+    // já saiu), mas é bom ver quanto de troco circulou.
+    function totalTrocoLista(lista){
+      return lista
+              .filter(i => i.pago)
+              .flatMap(i => i.pagamentos || [])
+              .reduce((s,p) => s + (Number(p.troco)||0), 0);
+    }
+
+    const totalCarros = useMemo(()=> carros.reduce((s,i)=>s+i.valor,0), [carros]);
     const totalCarrosPago = useMemo(()=> carros.filter(i=>i.pago).reduce((s,i)=>s+i.valor,0), [carros]);
     const totalCarrosDinheiro = useMemo(()=> totalPorMetodo(carros, 'dinheiro'), [carros]);
     const totalCarrosPix = useMemo(()=> totalPorMetodo(carros, 'pix'), [carros]);
+    const totalCarrosSemMetodo = useMemo(()=> totalPorMetodo(carros, 'nao_informado'), [carros]);
+    const trocoCarros = useMemo(()=> totalTrocoLista(carros), [carros]);
     const pendCarros = useMemo(()=> carros.filter(i=>!i.pago).reduce((s,i)=>s+i.valor,0), [carros]);
 
+    const totalMotos = useMemo(()=> motos.reduce((s,i)=>s+i.valor,0), [motos]);
     const totalMotosPago = useMemo(()=> motos.filter(i=>i.pago).reduce((s,i)=>s+i.valor,0), [motos]);
     const totalMotosDinheiro = useMemo(()=> totalPorMetodo(motos, 'dinheiro'), [motos]);
     const totalMotosPix = useMemo(()=> totalPorMetodo(motos, 'pix'), [motos]);
+    const totalMotosSemMetodo = useMemo(()=> totalPorMetodo(motos, 'nao_informado'), [motos]);
+    const trocoMotos = useMemo(()=> totalTrocoLista(motos), [motos]);
     const pendMotos = useMemo(()=> motos.filter(i=>!i.pago).reduce((s,i)=>s+i.valor,0), [motos]);
 
     if (loading) {
@@ -731,18 +820,29 @@
               )}
               <Section id="inicio" title="Resumo" subtitle="Visão geral rápida do caixa e movimentação">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                  <StatCard icon="car" label="Carros pagos" value={formatBRL(totalCarrosPago)} sub={`${carros.filter(i=>i.pago).length} de ${carros.length}`} />
-                  <StatCard icon="motorbike" label="Motos pagas" value={formatBRL(totalMotosPago)} sub={`${motos.filter(i=>i.pago).length} de ${motos.length}`} />
+                  <StatCard icon="car" label="Total Carros" value={formatBRL(totalCarros)} sub={`${carros.length} no pátio · ${formatBRL(totalCarrosPago)} pago`} />
+                  <StatCard icon="motorbike" label="Total Motos" value={formatBRL(totalMotos)} sub={`${motos.length} no pátio · ${formatBRL(totalMotosPago)} pago`} />
                   <StatCard icon="alarm-clock" label="Pend. Carros" value={formatBRL(pendCarros)} sub={`${carros.filter(i=>!i.pago).length} itens`} />
                   <StatCard icon="alarm-clock" label="Pend. Motos" value={formatBRL(pendMotos)} sub={`${motos.filter(i=>!i.pago).length} itens`} />
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-3">
-                  <StatCard icon="wallet" label="Carro: Dinheiro" value={formatBRL(totalCarrosDinheiro)} sub={`${countPagamentos(carros, 'dinheiro')} pagamentos`} />
+                  <StatCard icon="wallet" label="Carro: Dinheiro" value={formatBRL(totalCarrosDinheiro)} sub={`${countPagamentos(carros, 'dinheiro')} pagamentos${trocoCarros>0 ? ' · troco '+formatBRL(trocoCarros) : ''}`} />
                   <StatCard icon="credit-card" label="Carro: Pix" value={formatBRL(totalCarrosPix)} sub={`${countPagamentos(carros, 'pix')} pagamentos`} />
-                  <StatCard icon="wallet" label="Moto: Dinheiro" value={formatBRL(totalMotosDinheiro)} sub={`${countPagamentos(motos, 'dinheiro')} pagamentos`} />
+                  <StatCard icon="wallet" label="Moto: Dinheiro" value={formatBRL(totalMotosDinheiro)} sub={`${countPagamentos(motos, 'dinheiro')} pagamentos${trocoMotos>0 ? ' · troco '+formatBRL(trocoMotos) : ''}`} />
                   <StatCard icon="credit-card" label="Moto: Pix" value={formatBRL(totalMotosPix)} sub={`${countPagamentos(motos, 'pix')} pagamentos`} />
                 </div>
+
+                {(totalCarrosSemMetodo > 0 || totalMotosSemMetodo > 0) && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mt-3">
+                          {totalCarrosSemMetodo > 0 && (
+                                  <StatCard icon="circle-help" label="Carro: método não informado" value={formatBRL(totalCarrosSemMetodo)} sub="Reabra o veículo e escolha dinheiro/pix" />
+                          )}
+                          {totalMotosSemMetodo > 0 && (
+                                  <StatCard icon="circle-help" label="Moto: método não informado" value={formatBRL(totalMotosSemMetodo)} sub="Reabra o veículo e escolha dinheiro/pix" />
+                          )}
+                        </div>
+                )}
               </Section>
 
               <Section id="placas" title="Placas" subtitle="Gerencie entradas, pagamentos e valores" action={
@@ -766,7 +866,7 @@
                   </div>
 
                   <List items={items} search={search} tab={tab} paymentFilter={paymentFilter}
-                        onSetPagamentos={setPagamentos} onUpdateValor={updateValor} onDelete={removeItem}
+                        onUpdate={updateItem} onDelete={removeItem}
                   />
                 </div>
               </Section>
@@ -776,9 +876,16 @@
                   <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
                     <h3 className="font-semibold mb-2 flex items-center gap-2"><Icon name="car" className="w-5 h-5" />Carros</h3>
                     <ul className="text-sm grid gap-1">
+                      <li className="flex justify-between"><span>Total no pátio (pago + pendente)</span><span className="font-semibold">{formatBRL(totalCarros)}</span></li>
                       <li className="flex justify-between"><span>Arrecadado (pagos)</span><span className="font-semibold">{formatBRL(totalCarrosPago)}</span></li>
                       <li className="flex justify-between"><span className="ml-4">→ Dinheiro</span><span className="font-semibold">{formatBRL(totalCarrosDinheiro)}</span></li>
                       <li className="flex justify-between"><span className="ml-4">→ Pix</span><span className="font-semibold">{formatBRL(totalCarrosPix)}</span></li>
+                      {totalCarrosSemMetodo > 0 && (
+                              <li className="flex justify-between"><span className="ml-4">→ Não informado</span><span className="font-semibold">{formatBRL(totalCarrosSemMetodo)}</span></li>
+                      )}
+                      {trocoCarros > 0 && (
+                              <li className="flex justify-between text-amber-700 dark:text-amber-300"><span className="ml-4">→ Troco devolvido</span><span className="font-semibold">{formatBRL(trocoCarros)}</span></li>
+                      )}
                       <li className="flex justify-between"><span>Pendente</span><span className="font-semibold">{formatBRL(pendCarros)}</span></li>
                       <li className="flex justify-between"><span>Itens</span><span className="font-semibold">{carros.length}</span></li>
                     </ul>
@@ -786,9 +893,16 @@
                   <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40">
                     <h3 className="font-semibold mb-2 flex items-center gap-2"><Icon name="motorbike" className="w-5 h-5" />Motos</h3>
                     <ul className="text-sm grid gap-1">
+                      <li className="flex justify-between"><span>Total no pátio (pago + pendente)</span><span className="font-semibold">{formatBRL(totalMotos)}</span></li>
                       <li className="flex justify-between"><span>Arrecadado (pagos)</span><span className="font-semibold">{formatBRL(totalMotosPago)}</span></li>
                       <li className="flex justify-between"><span className="ml-4">→ Dinheiro</span><span className="font-semibold">{formatBRL(totalMotosDinheiro)}</span></li>
                       <li className="flex justify-between"><span className="ml-4">→ Pix</span><span className="font-semibold">{formatBRL(totalMotosPix)}</span></li>
+                      {totalMotosSemMetodo > 0 && (
+                              <li className="flex justify-between"><span className="ml-4">→ Não informado</span><span className="font-semibold">{formatBRL(totalMotosSemMetodo)}</span></li>
+                      )}
+                      {trocoMotos > 0 && (
+                              <li className="flex justify-between text-amber-700 dark:text-amber-300"><span className="ml-4">→ Troco devolvido</span><span className="font-semibold">{formatBRL(trocoMotos)}</span></li>
+                      )}
                       <li className="flex justify-between"><span>Pendente</span><span className="font-semibold">{formatBRL(pendMotos)}</span></li>
                       <li className="flex justify-between"><span>Itens</span><span className="font-semibold">{motos.length}</span></li>
                     </ul>
