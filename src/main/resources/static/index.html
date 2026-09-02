@@ -646,25 +646,45 @@
     const [search, setSearch] = useState('');
     const [paymentFilter, setPaymentFilter] = useState('todos');
 
+    // Cada mutação local deixa um "carimbo" aqui. O evento SSE que o próprio
+    // servidor devolve por causa dessa mutação é consumido (não dispara um
+    // reload da lista inteira) — a tela já foi atualizada com a resposta do
+    // POST/PUT. Eventos de OUTROS dispositivos passam direto e recarregam.
+    const ecosLocais = useRef([]);
+    function marcarAcaoLocal(){
+      ecosLocais.current.push(Date.now());
+    }
+
     useEffect(()=>{ loadItems(); }, []);
 
-    // Atualização em tempo real via Server-Sent Events. Se o back-end
-    // ainda não expõe /eventos, o EventSource fica tentando reconectar
-    // sozinho em segundo plano (comportamento padrão do próprio browser)
-    // sem quebrar o resto da tela.
+    // Atualização em tempo real via Server-Sent Events. O EventSource reconecta
+    // sozinho se a conexão cair (comportamento padrão do browser).
     useEffect(()=>{
       const src = new EventSource('/eventos');
-      src.addEventListener('atualizacao', () => {
-        loadItems({ silent: true });
-      });
-      // ATENÇÃO: onerror é uma propriedade (atribuição), não um método
-      // para "registrar um callback" chamando-o como função. Chamar
-      // `src.onerror(fn)` tenta executar `null` como função e quebra a
-      // aplicação inteira (React desmonta tudo sem um Error Boundary).
-      src.onerror = () => {
-        // EventSource já reconecta automaticamente; nada a fazer aqui.
+      let timer = null;
+      let vivo = true;
+
+      const agendarReload = () => {
+        if(timer) clearTimeout(timer);
+        // debounce: uma rajada de eventos (ex.: "limpar tudo") vira 1 reload.
+        timer = setTimeout(() => {
+          if(!vivo) return;
+          const agora = Date.now();
+          ecosLocais.current = ecosLocais.current.filter(t => agora - t < 4000);
+          if(ecosLocais.current.length > 0){
+            ecosLocais.current.shift(); // consome o eco da própria ação
+            return;
+          }
+          loadItems({ silent: true });
+        }, 350);
       };
-      return () => src.close();
+
+      src.addEventListener('atualizacao', agendarReload);
+      // ATENÇÃO: onerror é propriedade (atribuição), não um método. Chamar
+      // `src.onerror(fn)` executaria `null` como função e quebraria o app.
+      src.onerror = () => { /* EventSource já reconecta sozinho */ };
+
+      return () => { vivo = false; if(timer) clearTimeout(timer); src.close(); };
     }, []);
 
     useEffect(()=>{
@@ -703,6 +723,7 @@
         });
         if (!res.ok) throw new Error(await parseErro(res, 'Erro ao adicionar'));
         const saved = await res.json();
+        marcarAcaoLocal();
         setItems(prev => [migrateItem(saved), ...prev]);
       } catch (err) {
         alert(err.message || 'Erro ao adicionar');
@@ -730,6 +751,7 @@
         });
         if (!res.ok) throw new Error(await parseErro(res, 'Erro ao salvar'));
         const saved = await res.json();
+        marcarAcaoLocal();
         setItems(prev => prev.map(i => i.id === id ? migrateItem(saved) : i));
       } catch (err) {
         alert(err.message || 'Erro ao salvar');
@@ -740,6 +762,7 @@
       try {
         const res = await fetch(API_BASE + '/' + id, { method: 'DELETE' });
         if (!res.ok && res.status !== 204) throw new Error(await parseErro(res, 'Erro ao remover'));
+        marcarAcaoLocal();
         setItems(prev => prev.filter(i => i.id !== id));
       } catch (err) {
         alert(err.message || 'Erro ao remover');
@@ -749,6 +772,7 @@
     async function clearAll(){
       if(!confirm('Tem certeza que deseja limpar tudo?')) return;
       try {
+        items.forEach(marcarAcaoLocal);
         await Promise.all(items.map(item => fetch(API_BASE + '/' + item.id, { method: 'DELETE' })));
         setItems([]);
       } catch (err) {

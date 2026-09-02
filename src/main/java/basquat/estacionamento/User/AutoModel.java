@@ -1,6 +1,7 @@
 package basquat.estacionamento.User;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +37,11 @@ public class AutoModel {
     // false) — evita a dupla escrita da FK e o problema de INSERT com auto_id
     // nulo em coluna NOT NULL. cascade + orphanRemoval fazem os pagamentos
     // serem salvos/apagados junto com o veículo.
+    // BatchSize: ao listar N veículos, o Hibernate carrega os pagamentos de
+    // todos em poucas queries (WHERE auto_id IN (...)) em vez de uma por
+    // veículo (N+1) — o GET /Automoveis é chamado a cada evento de sync.
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @BatchSize(size = 200)
     @JoinColumn(
             name = "auto_id",
             insertable = false,
