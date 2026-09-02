@@ -14,10 +14,14 @@ import java.util.List;
 public class AutoService {
 
     private final AutoRepository autoRepository;
+    private final PagamentoRepository pagamentoRepository;
     private final EventoService eventoService;
 
-    public AutoService(AutoRepository autoRepository, EventoService eventoService) {
+    public AutoService(AutoRepository autoRepository,
+                       PagamentoRepository pagamentoRepository,
+                       EventoService eventoService) {
         this.autoRepository = autoRepository;
+        this.pagamentoRepository = pagamentoRepository;
         this.eventoService = eventoService;
     }
 
@@ -72,10 +76,14 @@ public class AutoService {
 
     @Transactional
     public void remover(String id) {
-        if (!autoRepository.existsById(id)) {
+        // Duas queries diretas (DELETE ... WHERE) em vez de: existsById + findById
+        // + carregar pagamentos + delete de cada filho + delete do pai. Sai de ~6
+        // idas ao banco para ~3 — a latência Render↔Supabase pesa em cada uma.
+        pagamentoRepository.deleteByAutoId(id);
+        int removidos = autoRepository.deleteByIdReturningCount(id);
+        if (removidos == 0) {
             throw new RecursoNaoEncontradoException("Automóvel não encontrado");
         }
-        autoRepository.deleteById(id);
         eventoService.notificar();
     }
 

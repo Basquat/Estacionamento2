@@ -20,8 +20,14 @@ COPY --from=build /app/target/Estacionamento-0.0.1-SNAPSHOT.jar app.jar
 # Variáveis de ambiente podem ser sobrescritas no Render
 ENV SPRING_PROFILES_ACTIVE=prod
 
+# Flags de JVM para instância pequena (Render free ~0.1 vCPU):
+#  SerialGC          -> sem threads de GC concorrente disputando a CPU
+#  TieredStopAtLevel=1 -> só JIT C1, boot bem mais rápido (app é I/O-bound)
+#  MaxRAMPercentage   -> respeita o limite de memória do container
+ENV JAVA_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k -XX:MaxRAMPercentage=70.0 -Dfile.encoding=UTF-8"
+
 # Expõe a porta 8080 (padrão Spring Boot)
 EXPOSE 8080
 
-# Comando de inicialização
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Comando de inicialização (sh -c para expandir $JAVA_OPTS; Render pode sobrescrever)
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]

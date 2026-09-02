@@ -743,6 +743,11 @@
         return;
       }
       const updated = { ...item, ...patch };
+      // Otimista: aplica na tela na hora e concilia com a resposta do servidor
+      // (ou desfaz se der erro). A ida ao Render+Supabase não trava a UI.
+      const anterior = items;
+      marcarAcaoLocal();
+      setItems(prev => prev.map(i => i.id === id ? migrateItem(updated) : i));
       try {
         const res = await fetch(API_BASE + '/' + id, {
           method: 'PUT',
@@ -751,31 +756,36 @@
         });
         if (!res.ok) throw new Error(await parseErro(res, 'Erro ao salvar'));
         const saved = await res.json();
-        marcarAcaoLocal();
         setItems(prev => prev.map(i => i.id === id ? migrateItem(saved) : i));
       } catch (err) {
+        setItems(anterior);
         alert(err.message || 'Erro ao salvar');
       }
     }
 
     async function removeItem(id){
+      // Otimista: some da tela imediatamente; se o servidor recusar, volta.
+      const anterior = items;
+      marcarAcaoLocal();
+      setItems(prev => prev.filter(i => i.id !== id));
       try {
         const res = await fetch(API_BASE + '/' + id, { method: 'DELETE' });
         if (!res.ok && res.status !== 204) throw new Error(await parseErro(res, 'Erro ao remover'));
-        marcarAcaoLocal();
-        setItems(prev => prev.filter(i => i.id !== id));
       } catch (err) {
+        setItems(anterior);
         alert(err.message || 'Erro ao remover');
       }
     }
 
     async function clearAll(){
       if(!confirm('Tem certeza que deseja limpar tudo?')) return;
+      const anterior = items;
+      anterior.forEach(marcarAcaoLocal);
+      setItems([]);
       try {
-        items.forEach(marcarAcaoLocal);
-        await Promise.all(items.map(item => fetch(API_BASE + '/' + item.id, { method: 'DELETE' })));
-        setItems([]);
+        await Promise.all(anterior.map(item => fetch(API_BASE + '/' + item.id, { method: 'DELETE' })));
       } catch (err) {
+        setItems(anterior);
         alert(err.message || 'Erro ao limpar');
       }
     }
