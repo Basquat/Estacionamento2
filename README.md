@@ -164,7 +164,7 @@ só limpa dados de teste antigos da tabela `pagamento` e garante a coluna `troco
 
 ## Deploy (Render + Docker)
 
-`Dockerfile` multi-stage: build com `maven:3.9-eclipse-temurin-21`, runtime em
+`Dockerfile` multi-stage: build com `maven:3.9.6-eclipse-temurin-21`, runtime em
 `eclipse-temurin:21-jre`.
 
 1. **New → Web Service**, conecte o repositório, runtime **Docker** (Build/Start Command vazios).
